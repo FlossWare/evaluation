@@ -16,6 +16,9 @@ Adversarial:
     AdversarialVerifier, VerificationResult, PanelMemberResult,
     select_panel, aggregate_verdicts
 
+Feedback:
+    FeedbackPattern, FeedbackSignal, FeedbackPatternMatcher
+
 Feedback Loop:
     SimpleFeedbackLoopDetector
 
@@ -34,6 +37,7 @@ from evaluation_ai.adversarial import (
 )
 from evaluation_ai.decorators import adversarial_verify, detect_feedback_loops
 from evaluation_ai.evaluation import SimpleEvaluationHarness
+from evaluation_ai.feedback import FeedbackPattern, FeedbackPatternMatcher, FeedbackSignal
 from evaluation_ai.feedback_loop import SimpleFeedbackLoopDetector
 from evaluation_ai.protocol import LLMBackend
 from evaluation_ai.types import (
@@ -51,6 +55,9 @@ __all__ = [
     "EvaluationResult",
     "FeedbackLoopReport",
     "FeedbackLoopRisk",
+    "FeedbackPattern",
+    "FeedbackPatternMatcher",
+    "FeedbackSignal",
     "LLMBackend",
     "PanelMemberResult",
     "SimpleEvaluationHarness",
