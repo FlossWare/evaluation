@@ -21,8 +21,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from dataclasses import dataclass, field
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from evaluation_ai.types import ChatMessage
