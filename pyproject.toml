@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "evaluation-ai"
 version = "0.1"
-description = "Multi-model evaluation harness, adversarial verification panels, and feedback-loop detection for LLM outputs."
+description = "Reusable evaluation and verification capabilities for assessing results against intended outcomes."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -29,9 +29,9 @@ classifiers = [
 dev = ["pytest", "pytest-asyncio", "ruff", "mypy", "bandit"]
 
 [project.urls]
-Homepage = "https://github.com/FlossWare/evaluation-ai"
-Repository = "https://github.com/FlossWare/evaluation-ai"
-Issues = "https://github.com/FlossWare/evaluation-ai/issues"
+Homepage = "https://github.com/FlossWare/evaluation"
+Repository = "https://github.com/FlossWare/evaluation"
+Issues = "https://github.com/FlossWare/evaluation/issues"
 
 [tool.setuptools.packages.find]
 include = ["evaluation_ai*"]
