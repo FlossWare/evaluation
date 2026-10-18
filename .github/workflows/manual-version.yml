@@ -56,7 +56,7 @@ jobs:
       - name: Get current version
         id: get-current
         run: |
-          CURRENT=$(grep -oP 'version = "\K[0-9]+\.[0-9]+' pyproject.toml | head -1)
+          CURRENT=$(grep -oP '^version = "\K[0-9]+\.[0-9]+' pyproject.toml | head -1)
           echo "current-version=$CURRENT" >> $GITHUB_OUTPUT
 
       - name: Calculate new version
@@ -89,12 +89,12 @@ jobs:
       - name: Update version files
         run: |
           NEW_VERSION="${{ steps.calculate.outputs.new-version }}"
-          sed -i 's/version = "[0-9]\+\.[0-9]\+"/version = "'$NEW_VERSION'"/' pyproject.toml
+          sed -i 's/^version = "[0-9]\+\.[0-9]\+"/version = "'$NEW_VERSION'"/' pyproject.toml
           sed -i 's/__version__ = "[0-9]\+\.[0-9]\+"/__version__ = "'$NEW_VERSION'"/' evaluation_ai/__init__.py
 
       - name: Validate version sync
         run: |
-          PYPROJECT_VERSION=$(grep -oP 'version = "\K[0-9]+\.[0-9]+' pyproject.toml | head -1)
+          PYPROJECT_VERSION=$(grep -oP '^version = "\K[0-9]+\.[0-9]+' pyproject.toml | head -1)
           INIT_VERSION=$(grep -oP '__version__ = "\K[0-9]+\.[0-9]+' evaluation_ai/__init__.py)
           if [ "$PYPROJECT_VERSION" != "$INIT_VERSION" ]; then
             echo "ERROR: Version mismatch!"
