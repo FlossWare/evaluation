@@ -12,8 +12,8 @@ SimpleFeedbackLoopDetector -- in-memory feedback-loop detector
 from __future__ import annotations
 
 from collections import Counter
-from datetime import UTC, datetime
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from evaluation_ai.types import FeedbackLoopReport, FeedbackLoopRisk
