@@ -75,9 +75,7 @@ DEFAULT_FEEDBACK_PATTERNS: tuple[FeedbackPattern, ...] = (
 class FeedbackPatternMatcher:
     """Detect corrections, preferences, and confirmations in user messages."""
 
-    def __init__(
-        self, patterns: tuple[FeedbackPattern, ...] = DEFAULT_FEEDBACK_PATTERNS
-    ) -> None:
+    def __init__(self, patterns: tuple[FeedbackPattern, ...] = DEFAULT_FEEDBACK_PATTERNS) -> None:
         self._patterns = patterns
 
     @property
