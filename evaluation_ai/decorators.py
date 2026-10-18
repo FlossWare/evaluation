@@ -153,10 +153,7 @@ def detect_feedback_loops(
 
             if not report.is_healthy:
                 risk_summary = "; ".join(r.description for r in report.risks)
-                msg = (
-                    f"Feedback-loop risks detected before {fn.__name__!r}: "
-                    f"{risk_summary}"
-                )
+                msg = f"Feedback-loop risks detected before {fn.__name__!r}: {risk_summary}"
                 if on_unhealthy == "raise":
                     raise RuntimeError(msg)
                 logger.warning(msg)
