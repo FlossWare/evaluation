@@ -113,9 +113,7 @@ class SimpleFeedbackLoopDetector:
 
     # -- internal checks -----------------------------------------------------
 
-    def _check_model_dominance(
-        self, data: list[dict[str, Any]]
-    ) -> list[FeedbackLoopRisk]:
+    def _check_model_dominance(self, data: list[dict[str, Any]]) -> list[FeedbackLoopRisk]:
         """Layer 1: any single model exceeding the dominance threshold."""
         if not data:
             return []
@@ -142,9 +140,7 @@ class SimpleFeedbackLoopDetector:
 
         return risks
 
-    def _check_eval_coupling(
-        self, data: list[dict[str, Any]]
-    ) -> list[FeedbackLoopRisk]:
+    def _check_eval_coupling(self, data: list[dict[str, Any]]) -> list[FeedbackLoopRisk]:
         """Layer 2: same model acting as both generator and evaluator."""
         generators: set[str] = set()
         evaluators: set[str] = set()
@@ -163,9 +159,7 @@ class SimpleFeedbackLoopDetector:
         if not overlap or not data:
             return []
 
-        total_evals = sum(
-            c for (_, role), c in role_counts.items() if role == "evaluator"
-        )
+        total_evals = sum(c for (_, role), c in role_counts.items() if role == "evaluator")
         if total_evals == 0:
             return []
 
@@ -190,9 +184,7 @@ class SimpleFeedbackLoopDetector:
 
         return risks
 
-    def _check_reward_hacking(
-        self, data: list[dict[str, Any]]
-    ) -> list[FeedbackLoopRisk]:
+    def _check_reward_hacking(self, data: list[dict[str, Any]]) -> list[FeedbackLoopRisk]:
         """Layer 3: quality metrics rising while diversity drops.
 
         This layer requires records to carry ``"quality"`` and
@@ -214,8 +206,7 @@ class SimpleFeedbackLoopDetector:
                     layer="reward_hacking",
                     severity=_SEVERITY_MEDIUM,
                     description=(
-                        "Quality increasing while diversity decreasing "
-                        "-- possible reward hacking"
+                        "Quality increasing while diversity decreasing -- possible reward hacking"
                     ),
                     metric_value=abs(diversity_trend),
                     threshold=0.0,
@@ -223,9 +214,7 @@ class SimpleFeedbackLoopDetector:
             ]
         return []
 
-    def _check_concept_collapse(
-        self, _data: list[dict[str, Any]]
-    ) -> list[FeedbackLoopRisk]:
+    def _check_concept_collapse(self, _data: list[dict[str, Any]]) -> list[FeedbackLoopRisk]:
         """Layer 4: placeholder -- always passes.
 
         Full implementation requires embedding similarity computation
