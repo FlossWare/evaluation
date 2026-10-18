@@ -67,7 +67,7 @@ jobs:
         id: get-current-version
         if: steps.check-commits.outputs.needs-version == 'true' && steps.determine-bump.outputs.bump-type != 'none'
         run: |
-          CURRENT_VERSION=$(grep -oP 'version = "\K[0-9]+\.[0-9]+' pyproject.toml | head -1)
+          CURRENT_VERSION=$(grep -oP '^version = "\K[0-9]+\.[0-9]+' pyproject.toml | head -1)
           echo "current-version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "Current version: $CURRENT_VERSION"
 
@@ -93,14 +93,14 @@ jobs:
         if: steps.check-commits.outputs.needs-version == 'true' && steps.determine-bump.outputs.bump-type != 'none'
         run: |
           NEW_VERSION="${{ steps.calculate-version.outputs.new-version }}"
-          sed -i 's/version = "[0-9]\+\.[0-9]\+"/version = "'$NEW_VERSION'"/' pyproject.toml
+          sed -i 's/^version = "[0-9]\+\.[0-9]\+"/version = "'$NEW_VERSION'"/' pyproject.toml
           sed -i 's/__version__ = "[0-9]\+\.[0-9]\+"/__version__ = "'$NEW_VERSION'"/' evaluation_ai/__init__.py
           echo "Updated version to $NEW_VERSION"
 
       - name: Validate version sync
         if: steps.check-commits.outputs.needs-version == 'true' && steps.determine-bump.outputs.bump-type != 'none'
         run: |
-          PYPROJECT_VERSION=$(grep -oP 'version = "\K[0-9]+\.[0-9]+' pyproject.toml | head -1)
+          PYPROJECT_VERSION=$(grep -oP '^version = "\K[0-9]+\.[0-9]+' pyproject.toml | head -1)
           INIT_VERSION=$(grep -oP '__version__ = "\K[0-9]+\.[0-9]+' evaluation_ai/__init__.py)
           echo "pyproject.toml: $PYPROJECT_VERSION"
           echo "__init__.py: $INIT_VERSION"
