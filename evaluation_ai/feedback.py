@@ -35,8 +35,16 @@ class FeedbackSignal:
 
 DEFAULT_FEEDBACK_PATTERNS: tuple[FeedbackPattern, ...] = (
     FeedbackPattern(re.compile(r"\byou\s+should\s+have\b", re.I), "correction", 0.9),
-    FeedbackPattern(re.compile(r"\bthat'?s\s+not\s+(right|correct|what)\b", re.I), "correction", 0.9),
-    FeedbackPattern(re.compile(r"\bthat\s+is\s+not\s+(right|correct|what)\b", re.I), "correction", 0.9),
+    FeedbackPattern(
+        re.compile(r"\bthat'?s\s+not\s+(right|correct|what)\b", re.I),
+        "correction",
+        0.9,
+    ),
+    FeedbackPattern(
+        re.compile(r"\bthat\s+is\s+not\s+(right|correct|what)\b", re.I),
+        "correction",
+        0.9,
+    ),
     FeedbackPattern(re.compile(r"\bwhy\s+didn'?t\s+you\b", re.I), "correction", 0.85),
     FeedbackPattern(re.compile(r"\bwhy\s+did\s+not\s+you\b", re.I), "correction", 0.85),
     FeedbackPattern(re.compile(r"\binstead\s+of\b", re.I), "correction", 0.7),
@@ -51,8 +59,16 @@ DEFAULT_FEEDBACK_PATTERNS: tuple[FeedbackPattern, ...] = (
     FeedbackPattern(re.compile(r"\bgood\s+job\b", re.I), "confirmation", 0.7),
     FeedbackPattern(re.compile(r"\bperfect\b", re.I), "confirmation", 0.65),
     FeedbackPattern(re.compile(r"\bexactly\s+what\s+I\s+wanted\b", re.I), "confirmation", 0.85),
-    FeedbackPattern(re.compile(r"\bthat'?s\s+(great|correct|right)\b", re.I), "confirmation", 0.75),
-    FeedbackPattern(re.compile(r"\bthat\s+is\s+(great|correct|right)\b", re.I), "confirmation", 0.75),
+    FeedbackPattern(
+        re.compile(r"\bthat'?s\s+(great|correct|right)\b", re.I),
+        "confirmation",
+        0.75,
+    ),
+    FeedbackPattern(
+        re.compile(r"\bthat\s+is\s+(great|correct|right)\b", re.I),
+        "confirmation",
+        0.75,
+    ),
 )
 
 
