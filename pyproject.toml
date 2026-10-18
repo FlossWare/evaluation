@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evaluation-ai"
-version = "0.1"
+version = "0.2"
 description = "Reusable evaluation and verification capabilities for assessing results against intended outcomes."
 readme = "README.md"
 requires-python = ">=3.11"

@@ -69,4 +69,4 @@ __all__ = [
     "select_panel",
 ]
 
-__version__ = "0.1"
+__version__ = "0.2"
