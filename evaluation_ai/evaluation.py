@@ -172,7 +172,7 @@ class SimpleEvaluationHarness:
         verdict = _verdict_from_average(overall_avg)
 
         reasoning_parts = [f"{dim}={averaged[dim]:.1f}" for dim in _DIMENSIONS if dim in averaged]
-        reasoning = f"Average scores: {', '.join(reasoning_parts)}. Overall average: {overall_avg:.2f}."
+        reasoning = f"Scores: {', '.join(reasoning_parts)}; overall={overall_avg:.2f}."
 
         return EvaluationResult(
             verdict=verdict,
