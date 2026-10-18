@@ -12,8 +12,9 @@ SimpleFeedbackLoopDetector -- in-memory feedback-loop detector
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timezone
-from typing import Any, Callable
+from datetime import UTC, datetime
+from collections.abc import Callable
+from typing import Any
 
 from evaluation_ai.types import FeedbackLoopReport, FeedbackLoopRisk
 
@@ -101,7 +102,7 @@ class SimpleFeedbackLoopDetector:
         return FeedbackLoopReport(
             is_healthy=is_healthy,
             risks=risks,
-            analyzed_at=datetime.now(timezone.utc).isoformat(),
+            analyzed_at=datetime.now(UTC).isoformat(),
             window_days=window_days,
         )
 
