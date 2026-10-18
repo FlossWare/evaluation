@@ -10,14 +10,13 @@ Zero external dependencies -- uses only the standard library.
 
 from __future__ import annotations
 
-import asyncio
 import functools
 import logging
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
-from evaluation_ai.adversarial import AdversarialVerifier, VerificationResult
+from evaluation_ai.adversarial import AdversarialVerifier
 from evaluation_ai.feedback_loop import SimpleFeedbackLoopDetector
-from evaluation_ai.types import FeedbackLoopReport
 
 logger = logging.getLogger(__name__)
 
