@@ -10,10 +10,13 @@ Zero external dependencies -- uses only the standard library.
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 from typing import TYPE_CHECKING, Any
 
 from evaluation_ai.types import ChatMessage, EvaluationResult
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from evaluation_ai.protocol import LLMBackend
@@ -103,7 +106,8 @@ class SimpleEvaluationHarness:
         - avg >= 2.5 -- ``"ACCEPT_WITH_RESERVATIONS"``
         - avg < 2.5  -- ``"REJECT"``
         """
-        if self._backend is None:
+        backend = self._backend
+        if backend is None:
             return EvaluationResult(
                 verdict="ACCEPT",
                 scores=dict.fromkeys(_DIMENSIONS, 5),
@@ -119,7 +123,7 @@ class SimpleEvaluationHarness:
 
         async def _evaluate_with_model(model: str) -> dict[str, int] | None:
             try:
-                response = await self._backend.chat(
+                response = await backend.chat(
                     messages,
                     model=model,
                     temperature=0.3,
@@ -127,8 +131,8 @@ class SimpleEvaluationHarness:
                 scores = _parse_scores(response.content)
                 if scores:
                     return scores
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Evaluation call failed for model %s: %s", model, exc)
             return None
 
         raw_results = await asyncio.gather(*[_evaluate_with_model(m) for m in models])
