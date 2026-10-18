@@ -1,39 +1,31 @@
-# evaluation-ai
+# evaluation
 
-**Evaluation and verification capabilities for FlossWare.**
+**Reusable evaluation and verification capabilities for FlossWare.**
 
-Evaluation answers: *did the result satisfy the intended outcome, and how confident are we?*
+Evaluation answers: *Did the result satisfy the intended outcome, and how strong is the supporting evidence?*
 
 ## Boundary
 
 ```text
 Intent + result + evidence
-          │
-          ▼
-      Evaluator
-          │
-          ├── deterministic tests/rules
-          ├── model judges
-          ├── adversarial verification
-          ├── human feedback
-          └── external evaluators
-          │
-          ▼
-      EvaluationResult
+          |
+          v
+       evaluation
+          |
+          +-- deterministic tests and rules
+          +-- model-based judges
+          +-- adversarial verification
+          +-- human feedback
+          +-- external evaluators
+          |
+          v
+EvaluationResult
 ```
 
-Evaluation is independent of model invocation. Model-backed evaluators should consume `model-gateway`; they should not define another provider abstraction.
-
-Evaluation must distinguish authoritative verification from untrusted/model-generated reward. Learned reward signals may inform optimization, but they cannot override authoritative tests, policy, or verification.
-
-## Feedback and learning
-
-Evaluation results can feed Loom's adaptive strategies and Knowledge system with explicit provenance. Immediate and delayed outcomes should remain associated with the Intent, run, Worker/Arbiter, model/resource selection, tools, and relevant Knowledge versions.
+Evaluation is independent of model invocation. It may use `model-gateway` when a model-based judge is appropriate, but it does not own provider selection or model routing.
 
 ## Relationship to Loom
 
-`loom-ai` owns execution and orchestration. `evaluation-ai` provides reusable evaluation implementations. `model-gateway` owns model access. `knowledge` owns durable validated knowledge.
+Loom defines execution and evidence semantics. `evaluation` supplies reusable evaluation behavior and result evidence that Loom Workers, Arbiters, or other compatible callers can consume. It does not replace the Arbiter or become an orchestration layer.
 
-## License
-
-MIT
+Evaluation results should distinguish measured facts, evaluator judgments, confidence, and provenance. A successful transport call is not proof that the intended outcome was achieved.
