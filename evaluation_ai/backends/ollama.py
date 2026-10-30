@@ -7,6 +7,7 @@ import json
 import logging
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 from evaluation_ai.types import ChatMessage, ChatResponse
@@ -49,6 +50,10 @@ class OllamaBackend:
             raise ValueError("timeout must be greater than zero")
         if max_concurrency < 1:
             raise ValueError("max_concurrency must be at least one")
+
+        parsed_url = urlsplit(base_url)
+        if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+            raise ValueError("base_url must be an absolute HTTP or HTTPS URL")
 
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
