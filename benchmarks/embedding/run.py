@@ -160,14 +160,13 @@ def main() -> None:
     similarities = query_vectors @ doc_vectors.T
     correct_top1 = sum(int(similarities[i].argmax() == i) for i in range(4))
 
-    reference = None
     if args.backend != "onnxruntime-cpu":
         reference_graph = MODEL_DIR / "onnx" / "model.onnx"
         if not reference_graph.is_file():
             parser.error(f"CPU FP32 reference graph not found: {reference_graph}")
-        reference = Encoder("onnxruntime-cpu", reference_graph, args.threads, args.performance_hint)
+        reference_encoder = Encoder("onnxruntime-cpu", reference_graph, args.threads, args.performance_hint)
         candidate = encoder.embed_documents(TEXTS)
-        baseline = reference.embed_documents(TEXTS)
+        baseline = reference_encoder.embed_documents(TEXTS)
         cosine = np.sum(candidate * baseline, axis=1)
         similarity_check = {
             "reference_backend": "onnxruntime-cpu",
