@@ -112,9 +112,7 @@ class OllamaBackend:
         resolved_model = str(response.get("model") or model)
         # Resolve the mutable tag to an immutable digest after inference.
         # Failure does not discard a valid response, but is explicitly recorded.
-        identity_after = await asyncio.to_thread(
-            self._resolve_model_identity, resolved_model
-        )
+        identity_after = await asyncio.to_thread(self._resolve_model_identity, resolved_model)
         identity = identity_before
         if (
             identity_before.get("digest")
@@ -125,9 +123,8 @@ class OllamaBackend:
             identity["identity_complete"] = False
             identity["identity_error"] = "model_digest_changed_during_inference"
             identity["digest_after_inference"] = identity_after.get("digest")
-        elif (
-            identity_before.get("identity_complete")
-            and not identity_after.get("identity_complete")
+        elif identity_before.get("identity_complete") and not identity_after.get(
+            "identity_complete"
         ):
             identity = dict(identity_before)
             identity["identity_complete"] = False
@@ -164,9 +161,9 @@ class OllamaBackend:
             entries = tags_data.get("models", [])
             match = next(
                 (
-                    item for item in entries
-                    if isinstance(item, dict)
-                    and model in {item.get("name"), item.get("model")}
+                    item
+                    for item in entries
+                    if isinstance(item, dict) and model in {item.get("name"), item.get("model")}
                 ),
                 None,
             )
@@ -196,13 +193,9 @@ class OllamaBackend:
                 decoded = json.loads(result.read().decode("utf-8"))
         except HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")
-            raise OllamaBackendError(
-                f"Ollama returned HTTP {exc.code}: {detail[:1000]}"
-            ) from exc
+            raise OllamaBackendError(f"Ollama returned HTTP {exc.code}: {detail[:1000]}") from exc
         except (URLError, TimeoutError, OSError) as exc:
-            raise OllamaBackendError(
-                f"Could not reach Ollama at {self.base_url}: {exc}"
-            ) from exc
+            raise OllamaBackendError(f"Could not reach Ollama at {self.base_url}: {exc}") from exc
         except json.JSONDecodeError as exc:
             raise OllamaBackendError("Ollama returned invalid JSON") from exc
 
