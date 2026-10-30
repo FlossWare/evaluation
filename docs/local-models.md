@@ -116,3 +116,43 @@ The backend accepts num_ctx, num_predict, top_k, top_p, min_p, repeat_penalty,
 seed, and stop as Ollama generation options. The runtime owns model loading and
 device placement; evaluation-ai does not download model weights or configure
 GPU drivers.
+
+## Manual model inventory and version snapshots
+
+The helper script uses only Python's standard library. Run it from the
+repository root; no package installation is required:
+
+~~~bash
+python3 scripts/model-catalog.py list
+python3 scripts/model-catalog.py inspect qwen3.5:2b
+python3 scripts/model-catalog.py snapshot qwen3.5:2b
+python3 scripts/model-catalog.py catalog
+~~~
+
+- `list` shows every model currently installed in the Ollama instance,
+  including its exact digest and runtime-reported details.
+- `inspect` asks Ollama for detailed model metadata, including family,
+  parameter size, quantization, and model information when exposed by that
+  model/runtime combination.
+- `snapshot` records the model identity and Ollama runtime version in
+  `~/.FlossWare/models/catalog/model-catalog.json`.
+- `catalog` prints the saved snapshots.
+
+The catalog records the human-friendly model reference (including its tag),
+Ollama's immutable content digest, model metadata, capture time, and Ollama
+runtime version. Tags are mutable names; the digest is the artifact identity.
+A later pull that changes the digest is a distinct model artifact and should
+be evaluated as such. The script preserves historical snapshots and does not
+download, remove, or modify model artifacts.
+
+For another Ollama endpoint or model root, use `--url` and
+`--models-dir`:
+
+~~~bash
+python3 scripts/model-catalog.py --url http://127.0.0.1:11434 \\
+  --models-dir "$HOME/.FlossWare/models" snapshot qwen3.5:2b
+~~~
+
+Catalog metadata lives under the same model root, but outside Ollama's
+`manifests/` and `blobs/` directories. Back up the catalog along with any
+evaluation records that refer to these model digests.
