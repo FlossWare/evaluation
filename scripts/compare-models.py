@@ -21,8 +21,8 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from evaluation_ai.backends.ollama import OllamaBackend
-from evaluation_ai.types import ChatMessage
+from evaluation_ai.backends.ollama import OllamaBackend  # noqa: E402
+from evaluation_ai.types import ChatMessage  # noqa: E402
 
 DEFAULT_SYSTEM_PROMPT = (
     Path(__file__).resolve().parents[1] / "prompts" / "thompson-outcome-judge.md"
