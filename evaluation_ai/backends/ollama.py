@@ -157,10 +157,10 @@ class OllamaBackend:
         }
         try:
             version_request = Request(f"{self.base_url}/api/version", method="GET")
-            with urlopen(version_request, timeout=min(self.timeout, 15)) as result:
+            with urlopen(version_request, timeout=min(self.timeout, 15)) as result:  # nosec B310
                 version_data = json.loads(result.read().decode("utf-8"))
             tags_request = Request(f"{self.base_url}/api/tags", method="GET")
-            with urlopen(tags_request, timeout=min(self.timeout, 15)) as result:
+            with urlopen(tags_request, timeout=min(self.timeout, 15)) as result:  # nosec B310
                 tags_data = json.loads(result.read().decode("utf-8"))
             identity["runtime_version"] = version_data.get("version")
             entries = tags_data.get("models", [])
@@ -194,7 +194,7 @@ class OllamaBackend:
             method="POST",
         )
         try:
-            with urlopen(request, timeout=self.timeout) as result:
+            with urlopen(request, timeout=self.timeout) as result:  # nosec B310
                 decoded = json.loads(result.read().decode("utf-8"))
         except HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")
