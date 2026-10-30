@@ -86,11 +86,22 @@ def host_metadata() -> dict:
 
 
 def git_metadata(root: Path) -> dict:
+    """Capture Git state even when the checkout is outside Git's safe.directory list."""
+    resolved = root.resolve()
+
     def git(*args: str) -> str | None:
-        return command_output(["git", "-C", str(root), *args])
+        return command_output([
+            "git",
+            "-c",
+            f"safe.directory={resolved}",
+            "-C",
+            str(resolved),
+            *args,
+        ])
+
     return {
         "commit": git("rev-parse", "HEAD"),
-        "branch": git("branch", "--show-current"),
+        "branch": git("branch", "--show-current") or None,
         "dirty": bool(git("status", "--porcelain")),
     }
 
@@ -123,6 +134,7 @@ def write_result(track: str, payload: dict, output_dir: str) -> Path:
         f"{track}-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}-"
         f"{uuid.uuid4().hex[:8]}"
     )
+    sut_root = resolve_sut_root()
     document = {
         "schema_version": 1,
         "run_id": run_id,
@@ -131,8 +143,8 @@ def write_result(track: str, payload: dict, output_dir: str) -> Path:
         "host": host_metadata(),
         "evaluation_repository": git_metadata(Path(__file__).resolve().parents[1]),
         "system_under_test": {
-            "path": str(resolve_sut_root()),
-            "git": git_metadata(resolve_sut_root()),
+            "path": str(sut_root),
+            "git": git_metadata(sut_root),
         },
         **payload,
     }
