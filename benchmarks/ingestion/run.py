@@ -20,7 +20,6 @@ import sys
 import tempfile
 import threading
 import time
-import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -176,6 +175,8 @@ def make_embedding_handler(encoder: Encoder):
                 return
             try:
                 body = json.loads(self.rfile.read(length).decode())
+                if not isinstance(body, dict):
+                    raise ValueError("body must be a JSON object")
                 texts, mode = body.get("texts"), body.get("mode", "document")
                 if mode not in {"document", "query"} or not isinstance(texts, list) or not texts or len(texts) > 64:
                     raise ValueError("texts must be a non-empty list of at most 64; mode must be document or query")
@@ -335,7 +336,6 @@ def vector_id(chunk_id: str, content_sha256: str) -> str:
 
 def ingest_run(
     services: IsolatedServices,
-    encoder: Encoder,
     backend: str,
     batch_size: int,
     document_count: int,
@@ -533,7 +533,7 @@ def main() -> None:
                     services.start_embedding_adapter(encoder)
                     for run_number in range(1, args.runs + 1):
                         results.append(ingest_run(
-                            services, encoder, backend, batch_size, args.documents, run_number
+                            services, backend, batch_size, args.documents, run_number
                         ) | {"device": actual_device, "graph": graph.name})
                 # Temporary service state and stores are removed only after all child processes stop.
 
