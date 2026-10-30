@@ -2,7 +2,7 @@
 """Run sequential, reproducible comparisons of local Ollama models on JSONL cases.
 
 Expected case format:
-{"id":"case-1","transcript":[{"role":"user","content":"..."},{"role":"assistant","content":"..."}],"expected_outcome":"success"}
+{"id":"case-1", "transcript":[...], "expected_outcome":"success"}
 
 The expected_outcome field is used only for local scoring and is never sent
 to the model. No remote APIs, parallel inference, or model downloads.
