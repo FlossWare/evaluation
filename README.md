@@ -61,3 +61,18 @@ python3 scripts/compare-models.py \
 
 See [Local model evaluation](docs/local-models.md) for the case format,
 comparison metrics, resource controls, and using sanitized transcript samples.
+
+
+## Compare local models on entity extraction
+
+Use a separate extraction prompt and labeled JSONL fixture suite:
+
+~~~bash
+python3 scripts/extract-entities.py \
+  --models qwen3.5:2b,gemma4:e2b \
+  --cases tests/fixtures/entity-extraction-cases.jsonl
+~~~
+
+The runner reports entity and relationship precision/recall/F1, canonical
+name and attribute accuracy, schema validity, latency, and immutable model
+provenance. See [Local model evaluation](docs/local-models.md).
