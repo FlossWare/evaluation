@@ -2,6 +2,7 @@
 
 Discovery reports hardware facts only; it does not qualify compute backends.
 """
+
 from evaluation_ai.hardware.discovery import discover_hardware
 from evaluation_ai.hardware.models import (
     SCHEMA_VERSION,
