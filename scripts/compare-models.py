@@ -235,9 +235,12 @@ async def run(args: argparse.Namespace) -> int:
                 "accuracy_on_labeled": round(accuracy, 4) if accuracy is not None else None,
                 "mean_latency_seconds": round(mean_latency, 4),
             }
+            accuracy_text = (
+                f"{accuracy:.0%}" if accuracy is not None else "n/a"
+            )
             print(
                 f"Summary: parse_rate={parse_rate:.0%}, "
-                f"accuracy_on_parseable={accuracy:.0%}, "
+                f"accuracy_on_labeled={accuracy_text}, "
                 f"mean_latency={mean_latency:.1f}s"
             )
 
