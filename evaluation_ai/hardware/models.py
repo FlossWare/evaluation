@@ -5,7 +5,7 @@ qualification belong to later layers and must not be inferred from detection.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any
 
 
