@@ -165,7 +165,9 @@ def main() -> int:
     sub.add_parser("list", help="List locally available models and their digests")
     inspect = sub.add_parser("inspect", help="Show detailed metadata for one installed model")
     inspect.add_argument("model", help="Exact Ollama model reference, e.g. qwen3.5:2b")
-    snapshot = sub.add_parser("snapshot", help="Record exact model and runtime identity in the catalog")
+    snapshot = sub.add_parser(
+        "snapshot", help="Record exact model and runtime identity in the catalog"
+    )
     snapshot.add_argument("model", help="Exact Ollama model reference, e.g. qwen3.5:2b")
     sub.add_parser("catalog", help="Print the saved FlossWare model catalog")
     args = parser.parse_args()
