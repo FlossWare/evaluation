@@ -44,3 +44,4 @@ Evaluation results should distinguish measured facts, evaluator judgments, confi
 ## Packaging note
 
 The repository is named `evaluation`. The current distribution/import identifiers remain `evaluation-ai` and `evaluation_ai`; repository naming does not automatically rename a published package or Python imports. Change those identifiers only through an explicit compatibility and release decision.
+\n\nManual Ollama model inventory and immutable version snapshots are documented in [Local model evaluation](docs/local-models.md). Run `python3 scripts/model-catalog.py --help` for the helper's commands.\n
