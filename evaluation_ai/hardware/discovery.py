@@ -11,11 +11,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from evaluation_ai.hardware.models import (
-    SCHEMA_VERSION,
     CPUProfile,
     GPUProfile,
     HardwareProfile,
     HostProfile,
+    SCHEMA_VERSION,
 )
 
 
