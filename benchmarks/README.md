@@ -34,7 +34,9 @@ Run commands from the `evaluation` repository root.
 
 Results are written to `benchmarks/results/` and are ignored by Git. Every
 run creates a unique JSON artifact containing host metadata, both repository
-revisions, configuration, timings, and correctness/quality metrics. No runner
+revisions, configuration, timings, and correctness/quality metrics. The vector
+runner excludes configurable warm-up queries from timing and records each
+measurement round separately alongside aggregate statistics. No runner
 downloads models. The Ollama runner only evaluates exact tags already returned
 by the local `/api/tags` endpoint.
 
@@ -51,7 +53,7 @@ python3 -m compileall -q benchmarks
 python3 benchmarks/chunking/run.py
 python3 benchmarks/tokenization/run.py
 python3 benchmarks/hybrid/run.py
-python3 benchmarks/vector/run.py --sizes 1000 10000
+python3 benchmarks/vector/run.py --sizes 1000 10000 --warmup-queries 20 --rounds 3
 python3 benchmarks/embedding/run.py
 python3 benchmarks/reranking/run.py
 python3 benchmarks/llm/run_ollama.py --models qwen3.5:2b
