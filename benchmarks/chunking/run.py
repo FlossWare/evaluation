@@ -1,0 +1,28 @@
+"""Measure chunking profiles for throughput, coverage, offsets, and determinism."""
+import argparse, json, sys, time
+from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from common import resolve_sut_root, summarize_ms, write_result
+SUT_ROOT=resolve_sut_root()
+sys.path.insert(0,str(SUT_ROOT/"services"/"chunking"))
+from chunking_service import chunk
+
+def main():
+ p=argparse.ArgumentParser(description=__doc__); p.add_argument("--iterations",type=int,default=20); p.add_argument("--output",default="benchmarks/results"); a=p.parse_args()
+ if a.iterations<1: p.error("iterations must be positive")
+ fixtures=[json.loads(x) for x in (Path(__file__).resolve().parents[1]/"fixtures"/"chunking.jsonl").read_text().splitlines() if x.strip()]
+ cases=[]
+ for f in fixtures:
+  fn=lambda: chunk(f["profile"],f["source_id"],f["text"],f["media_type"])
+  expected=fn(); samples=[]
+  for _ in range(a.iterations):
+   t=time.perf_counter(); records=fn(); samples.append((time.perf_counter()-t)*1000)
+  text_len=len(f["text"]); intervals=sorted((r["start"],r["end"]) for r in records); covered=0; cursor=0
+  for start,end in intervals:
+   if end>cursor: covered+=end-max(start,cursor); cursor=max(cursor,end)
+  cases.append({"case":f["case"],"profile":f["profile"],"input_chars":text_len,"chunk_count":len(records),"timing":summarize_ms(samples),
+   "chars_per_second":text_len/(sum(samples)/1000/len(samples)) if samples else None,"deterministic":records==expected,
+   "offsets_valid":all(f["text"][r["start"]:r["end"]]==r["text"] for r in records),"covered_characters":covered,
+   "coverage_ratio":(covered / text_len) if text_len else 1.0})
+ out=write_result("chunking",{"iterations":a.iterations,"cases":cases},a.output); print(out)
+if __name__=="__main__": main()
