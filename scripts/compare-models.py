@@ -134,7 +134,13 @@ async def run(args: argparse.Namespace) -> int:
 
     with output.open("a", encoding="utf-8") as stream:
         for model in models:
-            counts = {"cases": 0, "parseable": 0, "correct": 0, "latency_seconds": []}
+            counts = {
+                "cases": 0,
+                "labeled": 0,
+                "parseable": 0,
+                "correct": 0,
+                "latency_seconds": [],
+            }
             print(f"\n=== {model} ===", flush=True)
             for case in cases:
                 started = time.perf_counter()
@@ -168,10 +174,12 @@ async def run(args: argparse.Namespace) -> int:
                     and expected in {"success", "failure", "unknown"}
                     and parsed["outcome"] == expected
                 )
+                if expected is not None:
+                    counts["labeled"] += 1
                 if parsed is not None:
                     counts["parseable"] += 1
-                    if is_correct:
-                        counts["correct"] += 1
+                if is_correct:
+                    counts["correct"] += 1
 
                 record = {
                     "recorded_at": datetime.now(timezone.utc).isoformat(),
