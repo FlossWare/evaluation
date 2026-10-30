@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import re
 import sys
@@ -40,6 +41,14 @@ def load_jsonl(path: Path) -> list[dict[str, Any]]:
             raise ValueError(f"{path}:{line_number}: invalid JSON: {exc}") from exc
         if not isinstance(item, dict) or not isinstance(item.get("transcript"), list):
             raise ValueError(f"{path}:{line_number}: each case needs a transcript array")
+        expected = item.get("expected_outcome")
+        if expected is not None and (
+            not isinstance(expected, str)
+            or expected not in {"success", "failure", "unknown"}
+        ):
+            raise ValueError(
+                f"{path}:{line_number}: expected_outcome must be success, failure, or unknown"
+            )
         if not all(
             isinstance(message, dict)
             and message.get("role") in {"user", "assistant", "system", "tool"}
@@ -101,6 +110,7 @@ def make_messages(system_prompt: str, case: dict[str, Any]) -> list[ChatMessage]
 async def run(args: argparse.Namespace) -> int:
     cases = load_jsonl(args.cases)
     system_prompt = args.system_prompt.read_text(encoding="utf-8")
+    system_prompt_sha256 = hashlib.sha256(system_prompt.encode("utf-8")).hexdigest()
     models = [part.strip() for part in args.models.split(",") if part.strip()]
     if not models:
         raise ValueError("At least one model reference is required")
@@ -147,6 +157,12 @@ async def run(args: argparse.Namespace) -> int:
 
                 parsed = extract_json(response.content) if response else None
                 expected = case.get("expected_outcome")
+                transcript_json = json.dumps(
+                    case["transcript"], ensure_ascii=False, sort_keys=True
+                )
+                case_sha256 = hashlib.sha256(
+                    transcript_json.encode("utf-8")
+                ).hexdigest()
                 is_correct = (
                     parsed is not None
                     and expected in {"success", "failure", "unknown"}
@@ -160,6 +176,8 @@ async def run(args: argparse.Namespace) -> int:
                 record = {
                     "recorded_at": datetime.now(timezone.utc).isoformat(),
                     "case_id": case.get("id", f"case-{counts['cases']}"),
+                    "case_sha256": case_sha256,
+                    "system_prompt_sha256": system_prompt_sha256,
                     "expected_outcome": expected,
                     "requested_model": model,
                     "resolved_model": response.model if response else model,
