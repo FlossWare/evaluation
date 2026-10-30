@@ -1,4 +1,5 @@
 """Command-line entry point for hardware profile discovery."""
+
 from __future__ import annotations
 
 import argparse
