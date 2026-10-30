@@ -121,7 +121,7 @@ class SimpleEvaluationHarness:
         )
         messages = [ChatMessage(role="user", content=prompt_content)]
 
-        async def _evaluate_with_model(model: str) -> dict[str, int] | None:
+        async def _evaluate_with_model(model: str) -> tuple[dict[str, int], dict[str, Any]] | None:
             try:
                 response = await backend.chat(
                     messages,
@@ -130,20 +130,30 @@ class SimpleEvaluationHarness:
                 )
                 scores = _parse_scores(response.content)
                 if scores:
-                    return scores
+                    metadata = {
+                        "requested_model": model,
+                        "provider": response.provider,
+                        "resolved_model": response.model,
+                        "model_identity": response.model_identity,
+                        "usage": response.usage,
+                    }
+                    return scores, metadata
             except Exception as exc:
                 logger.debug("Evaluation call failed for model %s: %s", model, exc)
             return None
 
         raw_results = await asyncio.gather(*[_evaluate_with_model(m) for m in models])
 
-        # Collect only successful parses.
+        # Collect only successful parses and preserve the model provenance.
         per_model_scores: list[dict[str, int]] = []
         successful_models: list[str] = []
+        evaluator_metadata: list[dict[str, Any]] = []
         for model, result in zip(models, raw_results):
             if result is not None:
-                per_model_scores.append(result)
+                scores, metadata = result
+                per_model_scores.append(scores)
                 successful_models.append(model)
+                evaluator_metadata.append(metadata)
 
         if not per_model_scores:
             return EvaluationResult(
@@ -179,4 +189,5 @@ class SimpleEvaluationHarness:
             scores=averaged,
             reasoning=reasoning,
             evaluator_models=successful_models,
+            evaluator_metadata=evaluator_metadata,
         )
