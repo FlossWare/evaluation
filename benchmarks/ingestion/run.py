@@ -238,17 +238,21 @@ class IsolatedServices:
             ("chunking", "services/chunking/chunking_service.py", "/ready"),
             ("vector", "services/embeddings/vector_service.py", "/health"),
         ]
-        for name, relative_path, health_path in services:
-            log_path = self.state_dir / f"{name}.log"
-            handle = log_path.open("w", encoding="utf-8")
-            self.log_handles.append(handle)
-            process = subprocess.Popen(
-                [sys.executable, str(self.poc_root / relative_path)],
-                cwd=self.poc_root, env=env, stdout=handle, stderr=subprocess.STDOUT,
-            )
-            self.processes.append(process)
-            wait_ready(self.urls[name] + health_path, process, log_path)
-        return self
+        try:
+            for name, relative_path, health_path in services:
+                log_path = self.state_dir / f"{name}.log"
+                handle = log_path.open("w", encoding="utf-8")
+                self.log_handles.append(handle)
+                process = subprocess.Popen(
+                    [sys.executable, str(self.poc_root / relative_path)],
+                    cwd=self.poc_root, env=env, stdout=handle, stderr=subprocess.STDOUT,
+                )
+                self.processes.append(process)
+                wait_ready(self.urls[name] + health_path, process, log_path)
+            return self
+        except Exception:
+            self.close()
+            raise
 
     def start_embedding_adapter(self, encoder: Encoder) -> str:
         self.embedding_server = ThreadingHTTPServer(
@@ -520,7 +524,9 @@ def main() -> None:
             with tempfile.TemporaryDirectory(prefix=f"flossware-ingestion-{backend}-") as temp:
                 state_dir = Path(temp)
                 with IsolatedServices(poc_root, state_dir, model_dir) as services:
+                    model_load_started = time.perf_counter()
                     encoder = Encoder(backend, graph, args.threads, args.performance_hint)
+                    model_load_ms = (time.perf_counter() - model_load_started) * 1000
                     actual_device = str(encoder.providers[0]) if encoder.providers else "unknown"
                     if backend == "openvino-gpu" and "GPU" not in actual_device.upper():
                         raise RuntimeError(f"OpenVINO GPU requested but runtime reports {actual_device!r}")
