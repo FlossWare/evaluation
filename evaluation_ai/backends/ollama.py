@@ -125,6 +125,12 @@ class OllamaBackend:
             identity["identity_complete"] = False
             identity["identity_error"] = "model_digest_changed_during_inference"
             identity["digest_after_inference"] = identity_after.get("digest")
+        elif identity_before.get("identity_complete") and not identity_after.get("identity_complete"):
+            identity = dict(identity_before)
+            identity["identity_complete"] = False
+            identity["identity_error"] = identity_after.get(
+                "identity_error", "could_not_verify_model_digest_after_inference"
+            )
         elif not identity_before.get("identity_complete"):
             identity = identity_after
         return ChatResponse(
