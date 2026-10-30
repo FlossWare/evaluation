@@ -24,7 +24,7 @@ Run commands from the `evaluation` repository root.
 
 | Track | Command | Measures |
 |---|---|---|
-| Embeddings | `python3 benchmarks/embedding/run.py` | Nomic ONNX CPU baseline, batch sizes, latency, throughput, vector validity |
+| Embeddings | `python3 benchmarks/embedding/run.py` | Nomic ONNX Runtime CPU FP32, OpenVINO CPU, and OpenVINO GPU backends; batch sizes, latency, throughput, vector validity, semantic smoke, and optional FP32 cosine comparison |
 | Vector retrieval | `python3 benchmarks/vector/run.py` | Exact NumPy vs argpartition vs Chroma HNSW, Recall@K |
 | Reranking | `python3 benchmarks/reranking/run.py` | Pinned local MiniLM quality (MRR/NDCG) and batch-size timing |
 | Hybrid retrieval | `python3 benchmarks/hybrid/run.py` | Production RRF fusion against fixed lexical/vector relevance judgments |
@@ -60,7 +60,14 @@ python3 benchmarks/llm/run_ollama.py --models qwen3.5:2b
 ```
 
 Embedding and reranking require the pinned local model artifacts used by the
-system under test. Vector comparison requires NumPy and ChromaDB. The Ollama
+system under test. Embedding defaults to ONNX Runtime CPU FP32 and accepts
+`--backend onnxruntime-cpu`, `--backend openvino-cpu`, or
+`--backend openvino-gpu`. The GPU backend defaults to the local
+`model_fp16.onnx` graph and compares its document vectors with the ONNX Runtime
+CPU FP32 reference. OpenVINO runs can select `--performance-hint LATENCY` or
+`THROUGHPUT`; install the OpenVINO Python package and ensure its GPU plugin and
+Intel graphics runtime are available. Use identical batch sizes, warmups,
+iterations, and model revision when comparing backends. Vector comparison requires NumPy and ChromaDB. The Ollama
 runner requires a local Ollama server and installed model tags. Missing
 prerequisites should be reported as unavailable; no model downloads occur.
 
