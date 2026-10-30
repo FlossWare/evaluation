@@ -175,8 +175,9 @@ python3 scripts/compare-models.py \\
 
 The runner processes models and cases sequentially. It does not parallelize
 inference, download models, call cloud APIs, or write to Thompson. Defaults
-are temperature 0, one 4K context, and one request at a time. It records
-latency, prompt/output token counts when Ollama provides them, raw response,
+are temperature 0, seed 42, one 4K context, and one request at a time. It records
+wall-clock latency separately from Ollama's inference duration, prompt/output
+token counts when Ollama provides them, raw response,
 parsed judgment, model digest, Ollama version, and generation settings.
 
 Detailed JSONL results are written by default beneath
@@ -217,7 +218,7 @@ python3 scripts/compare-models.py \\
   --keep-alive 2m
 ~~~
 
-You can change the generation settings with `--temperature`,
+You can change the generation settings with `--temperature`, `--seed`,
 `--num-ctx`, `--num-predict`, `--keep-alive`, and `--timeout`.
 Use exact installed Ollama tags in `--models`. Results preserve the resolved
 digest so comparisons remain attributable to a specific artifact.
