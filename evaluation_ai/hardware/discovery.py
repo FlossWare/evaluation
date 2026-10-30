@@ -22,9 +22,7 @@ from evaluation_ai.hardware.models import (
 _VENDOR_NAMES = {
     "0x8086": "Intel",
     "0x10de": "NVIDIA",
-    "0x1002": "AMD",
     "0x1022": "AMD",
-    "0x1002": "AMD",
     "0x1414": "Microsoft",
 }
 
@@ -109,20 +107,19 @@ def _gpu_profiles(sys_root: Path) -> tuple[GPUProfile, ...]:
             driver = None
         bus_id = device_path.resolve().name if device_path.exists() else None
         vram = None
-        for candidate in (
-            device_path / "mem_info_vram_total",
-            device_path / "local_cpus",
-        ):
-            raw = _read_text(candidate)
-            if candidate.name == "mem_info_vram_total" and raw and raw.isdigit():
-                vram = int(raw)
-                break
+        raw_vram = _read_text(device_path / "mem_info_vram_total")
+        if raw_vram and raw_vram.isdigit():
+            vram = int(raw_vram)
+        model = (
+            _read_text(device_path / "product_name")
+            or _read_text(device_path / "label")
+        )
         devices.append(
             GPUProfile(
                 index=len(devices),
                 vendor=_VENDOR_NAMES.get(vendor_id.lower()),
                 vendor_id=vendor_id.lower(),
-                model=None,
+                model=model,
                 device_id=device_id.lower(),
                 pci_bus_id=bus_id,
                 driver=driver,
