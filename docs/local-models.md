@@ -156,3 +156,75 @@ python3 scripts/model-catalog.py --url http://127.0.0.1:11434 \\
 Catalog metadata lives under the same model root, but outside Ollama's
 `manifests/` and `blobs/` directories. Back up the catalog along with any
 evaluation records that refer to these model digests.
+
+
+## Compare models on Thompson outcome judgments
+
+The repository includes a small synthetic regression suite covering clear
+success, material factual correction, preference correction followed by
+successful completion, insufficient feedback, explicit task failure, and a
+reasonable clarification followed by completion.
+
+Run several already-installed models against exactly the same cases:
+
+~~~bash
+python3 scripts/compare-models.py \\
+  --models qwen3.5:2b,gemma4:e2b \\
+  --cases tests/fixtures/thompson-outcome-cases.jsonl
+~~~
+
+The runner processes models and cases sequentially. It does not parallelize
+inference, download models, call cloud APIs, or write to Thompson. Defaults
+are temperature 0, one 4K context, and one request at a time. It records
+latency, prompt/output token counts when Ollama provides them, raw response,
+parsed judgment, model digest, Ollama version, and generation settings.
+
+Detailed JSONL results are written by default beneath
+`~/.FlossWare/models/runs/`. The output contains the input's expected labels
+for local scoring, but those labels are deliberately excluded from the prompt
+sent to the model. Treat result files as sensitive if the cases contain real
+transcripts.
+
+The summary reports JSON parse rate and accuracy against the synthetic
+expected outcomes. Accuracy is calculated over parseable judgments; inspect
+the parse rate too, since a model that emits invalid JSON should not get a
+free pass. This small fixture is a smoke/regression suite, not a statistically
+meaningful benchmark or proof that a judge is reliable.
+
+### Use your own sanitized Thompson samples
+
+Create a JSONL file with one JSON object per line. Each case needs a unique
+`id` and a `transcript` array. Each message has a `role` and string
+`content`. Optionally include `expected_outcome` with `success`,
+`failure`, or `unknown` for a labeled test set. Do not include expected
+labels unless you have independently established them; they are used only
+for local comparison and never sent to the judge.
+
+Example:
+
+~~~json
+{"id":"turn-001","transcript":[{"role":"user","content":"Summarize the issue."},{"role":"assistant","content":"Here is the summary."}],"expected_outcome":"unknown"}
+~~~
+
+Then run:
+
+~~~bash
+python3 scripts/compare-models.py \\
+  --models qwen3.5:2b,gemma4:e2b,qwen3.5:4b \\
+  --cases "$HOME/tmp/thompson-samples.jsonl" \\
+  --num-ctx 4096 \\
+  --num-predict 512 \\
+  --keep-alive 2m
+~~~
+
+You can change the generation settings with `--temperature`,
+`--num-ctx`, `--num-predict`, `--keep-alive`, and `--timeout`.
+Use exact installed Ollama tags in `--models`. Results preserve the resolved
+digest so comparisons remain attributable to a specific artifact.
+
+The runner uses the evidence-based rubric in
+[`prompts/thompson-outcome-judge.md`](../prompts/thompson-outcome-judge.md).
+It judges the completed interaction, distinguishes presentation corrections
+from material errors, and returns `unknown` when the transcript is
+insufficient. It does not write labels back to source transcripts or update
+Thompson statistics.
