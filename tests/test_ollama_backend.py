@@ -111,3 +111,9 @@ def test_ollama_backend_validates_resource_limits():
         OllamaBackend(timeout=0)
     with pytest.raises(ValueError, match="max_concurrency"):
         OllamaBackend(max_concurrency=0)
+
+
+
+def test_ollama_backend_rejects_non_http_url_schemes():
+    with pytest.raises(ValueError, match="HTTP or HTTPS"):
+        OllamaBackend("file:///tmp/model-store")
