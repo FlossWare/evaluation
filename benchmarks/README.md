@@ -24,7 +24,7 @@ Run commands from the `evaluation` repository root.
 
 | Track | Command | Measures |
 |---|---|---|
-| Embeddings | `python3 benchmarks/embedding/run.py` | Nomic ONNX Runtime CPU FP32, OpenVINO CPU, and OpenVINO GPU backends; batch sizes, latency, throughput, vector validity, semantic smoke, and optional FP32 cosine comparison |
+| Embeddings | `python3 benchmarks/embedding/run.py` | Nomic ONNX Runtime CPU FP32, OpenVINO CPU, and OpenVINO GPU backends; batch sizes, latency, throughput, vector validity, semantic smoke, and optional FP32 cosine comparison |\n| Ingestion | `python3 benchmarks/ingestion/run.py` | Isolated Index → Knowledge → Chunking → Embedding → Vector REST pipeline; CPU/OpenVINO backends, batch sizes, per-stage timings, vector counts, and retrieval smoke checks |
 | Vector retrieval | `python3 benchmarks/vector/run.py` | Exact NumPy vs argpartition vs Chroma HNSW, Recall@K |
 | Reranking | `python3 benchmarks/reranking/run.py` | Pinned local MiniLM quality (MRR/NDCG) and batch-size timing |
 | Hybrid retrieval | `python3 benchmarks/hybrid/run.py` | Production RRF fusion against fixed lexical/vector relevance judgments |
@@ -84,3 +84,16 @@ a faster candidate is not an improvement if retrieval quality regresses.
 
 See [PLAN.md](PLAN.md) for implementation status, acceptance gates, and deferred
 work.
+
+
+The ingestion runner starts the POC Index, Knowledge, Chunking, and Vector
+services on dynamically allocated loopback ports. It supplies an evaluation-owned
+embedding adapter with the same `/embeddings` contract, backed by the selected
+local inference runtime. SQLite databases and ChromaDB use a fresh temporary
+directory for every backend/batch configuration; the runner does not read the
+scrape ledger, raw corpus, live service ports, or existing POC stores. It creates
+deterministic synthetic documents, records per-stage REST timings, verifies
+manifest/vector counts, and checks retrieval against four known queries. The
+runner requires the POC service dependencies and local Nomic model artifacts;
+it never downloads models. The default run uses three repetitions and batch size
+64. Use the expanded command above to compare batch sizes 16, 32, and 64.
