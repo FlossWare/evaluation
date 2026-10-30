@@ -55,3 +55,10 @@ Evaluation capabilities are transport-independent:
 - `LLMBackend` Protocol defines what is needed (async chat), not how it is delivered.
 - No HTTP, gRPC, or other transport assumptions baked in.
 - The same evaluation logic works whether the backend is a local mock, an API client, or an agent-internal router.
+
+## Hardware discovery
+
+- Hardware discovery is explicitly invoked; importing the package performs no host inspection.
+- Discovery uses the Python standard library and reports unknown values rather than guessing.
+- Detected hardware, installed tools, runtime support, qualified execution, and active runtime configuration are distinct states.
+- Hardware discovery does not install drivers, launch services, or mutate runtime configuration.
