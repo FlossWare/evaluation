@@ -1,6 +1,6 @@
 """Best-effort hardware discovery using the Python standard library."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import glob
 import os
