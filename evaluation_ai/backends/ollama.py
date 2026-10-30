@@ -89,6 +89,7 @@ class OllamaBackend:
         if kwargs:
             logger.debug("Ignoring unsupported Ollama chat arguments: %s", sorted(kwargs))
 
+        identity_before = await asyncio.to_thread(self._resolve_model_identity, model)
         async with self._semaphore:
             response = await asyncio.to_thread(self._post_chat, payload)
 
@@ -111,7 +112,17 @@ class OllamaBackend:
         resolved_model = str(response.get("model") or model)
         # Resolve the mutable tag to an immutable digest after inference.
         # Failure does not discard a valid response, but is explicitly recorded.
-        identity = await asyncio.to_thread(self._resolve_model_identity, resolved_model)
+        identity_after = await asyncio.to_thread(
+            self._resolve_model_identity, resolved_model
+        )
+        identity = identity_before
+        if identity_before.get("digest") != identity_after.get("digest"):
+            identity = dict(identity_before)
+            identity["identity_complete"] = False
+            identity["identity_error"] = "model_digest_changed_during_inference"
+            identity["digest_after_inference"] = identity_after.get("digest")
+        elif not identity_before.get("identity_complete"):
+            identity = identity_after
         return ChatResponse(
             content=message["content"],
             model=resolved_model,
