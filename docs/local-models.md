@@ -5,24 +5,15 @@ zero-dependency core continue to work without Ollama or model weights.
 
 ## Model storage
 
-FlossWare local model assets belong under:
+Use the established FlossWare model directory as the Ollama model store:
 
 ~~~text
 ~/.FlossWare/models/
 ~~~
-
-Keep runtime-specific files in subdirectories so model stores do not collide:
-
-~~~text
-~/.FlossWare/models/
-└── ollama/          # Ollama-managed blobs and manifests
-~~~
-
-Set Ollama's model store before starting the server:
 
 ~~~bash
-mkdir -p "$HOME/.FlossWare/models/ollama"
-OLLAMA_MODELS="$HOME/.FlossWare/models/ollama" ollama serve
+mkdir -p "$HOME/.FlossWare/models"
+OLLAMA_MODELS="$HOME/.FlossWare/models" ollama serve
 ~~~
 
 For a systemd-managed Ollama service, configure the service environment rather
@@ -32,12 +23,17 @@ than starting a second server:
 sudo systemctl edit ollama
 ~~~
 
-Add:
+Add an absolute path to the existing user's model directory:
 
 ~~~ini
 [Service]
-Environment="OLLAMA_MODELS=%h/.FlossWare/models/ollama"
+Environment="OLLAMA_MODELS=/absolute/path/to/home/.FlossWare/models"
 ~~~
+
+A system service may run as a dedicated account. Check it with
+`systemctl show ollama -p User` and grant that account access to the model
+directory as appropriate. Do not use `%h` blindly: in a system service it
+can refer to the service account's home, not the interactive user's home.
 
 Then reload and restart the service:
 
