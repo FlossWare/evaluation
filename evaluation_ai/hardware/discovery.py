@@ -111,10 +111,7 @@ def _gpu_profiles(sys_root: Path) -> tuple[GPUProfile, ...]:
         raw_vram = _read_text(device_path / "mem_info_vram_total")
         if raw_vram and raw_vram.isdigit():
             vram = int(raw_vram)
-        model = (
-            _read_text(device_path / "product_name")
-            or _read_text(device_path / "label")
-        )
+        model = _read_text(device_path / "product_name") or _read_text(device_path / "label")
         devices.append(
             GPUProfile(
                 index=len(devices),
