@@ -222,16 +222,17 @@ async def run(args: argparse.Namespace) -> int:
 
             total = counts["cases"]
             parse_rate = counts["parseable"] / total if total else 0.0
-            accuracy = counts["correct"] / counts["parseable"] if counts["parseable"] else 0.0
+            accuracy = counts["correct"] / counts["labeled"] if counts["labeled"] else None
             mean_latency = (
                 sum(counts["latency_seconds"]) / total if total else 0.0
             )
             summary[model] = {
                 "cases": total,
+                "labeled_cases": counts["labeled"],
                 "parseable": counts["parseable"],
                 "parse_rate": round(parse_rate, 4),
                 "correct": counts["correct"],
-                "accuracy_on_parseable": round(accuracy, 4),
+                "accuracy_on_labeled": round(accuracy, 4) if accuracy is not None else None,
                 "mean_latency_seconds": round(mean_latency, 4),
             }
             print(
