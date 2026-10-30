@@ -108,12 +108,57 @@ class OllamaBackend:
             )
             if key in response
         }
+        resolved_model = str(response.get("model") or model)
+        # Resolve the mutable tag to an immutable digest after inference.
+        # Failure does not discard a valid response, but is explicitly recorded.
+        identity = await asyncio.to_thread(self._resolve_model_identity, resolved_model)
         return ChatResponse(
             content=message["content"],
-            model=response.get("model", model),
+            model=resolved_model,
             provider="ollama",
             usage=usage,
+            model_identity=identity,
         )
+
+    def _resolve_model_identity(self, model: str) -> dict[str, Any]:
+        identity: dict[str, Any] = {
+            "runtime": "ollama",
+            "runtime_version": None,
+            "model_reference": model,
+            "digest": None,
+            "details": {},
+            "identity_complete": False,
+        }
+        try:
+            version_request = Request(f"{self.base_url}/api/version", method="GET")
+            with urlopen(version_request, timeout=min(self.timeout, 15)) as result:
+                version_data = json.loads(result.read().decode("utf-8"))
+            tags_request = Request(f"{self.base_url}/api/tags", method="GET")
+            with urlopen(tags_request, timeout=min(self.timeout, 15)) as result:
+                tags_data = json.loads(result.read().decode("utf-8"))
+            identity["runtime_version"] = version_data.get("version")
+            entries = tags_data.get("models", [])
+            match = next(
+                (
+                    item for item in entries
+                    if isinstance(item, dict)
+                    and model in {item.get("name"), item.get("model")}
+                ),
+                None,
+            )
+            if match is None:
+                identity["identity_error"] = "model_not_found_in_local_inventory"
+                return identity
+            identity["digest"] = match.get("digest")
+            identity["modified_at"] = match.get("modified_at")
+            identity["size_bytes"] = match.get("size")
+            identity["details"] = match.get("details") or {}
+            identity["identity_complete"] = bool(
+                identity["runtime_version"] and identity["digest"]
+            )
+        except (HTTPError, URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+            identity["identity_error"] = str(exc)
+        return identity
 
     def _post_chat(self, payload: dict[str, Any]) -> dict[str, Any]:
         request = Request(
