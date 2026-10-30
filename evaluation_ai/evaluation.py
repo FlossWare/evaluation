@@ -135,6 +135,7 @@ class SimpleEvaluationHarness:
                         "provider": response.provider,
                         "resolved_model": response.model,
                         "model_identity": response.model_identity,
+                        "generation": {"temperature": 0.3},
                         "usage": response.usage,
                     }
                     return scores, metadata
