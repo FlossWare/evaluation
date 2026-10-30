@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 
 from evaluation_ai.hardware import discover_hardware
 
