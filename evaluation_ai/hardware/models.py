@@ -4,7 +4,7 @@ The profile intentionally records facts only. Runtime support and execution
 qualification belong to later layers and must not be inferred from detection.
 """
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from dataclasses import asdict, dataclass
 from typing import Any
