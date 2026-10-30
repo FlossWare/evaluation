@@ -70,7 +70,9 @@ def find_model(models: list[dict[str, Any]], reference: str) -> dict[str, Any]:
             "Run 'ollama pull MODEL:TAG' first."
         )
     if len(matches) > 1:
-        raise OllamaError(f"Model reference {reference!r} is ambiguous; use its full name or digest")
+        raise OllamaError(
+            f"Model reference {reference!r} is ambiguous; use its full name or digest"
+        )
     return matches[0]
 
 
