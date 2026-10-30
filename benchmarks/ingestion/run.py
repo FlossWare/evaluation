@@ -521,21 +521,31 @@ def main() -> None:
         if not graph.is_file() or not (model_dir / "tokenizer.json").is_file():
             parser.error(f"required local model artifacts are missing under {model_dir}; no downloads are attempted")
         for batch_size in args.batch_sizes:
-            with tempfile.TemporaryDirectory(prefix=f"flossware-ingestion-{backend}-") as temp:
-                state_dir = Path(temp)
-                with IsolatedServices(poc_root, state_dir, model_dir) as services:
-                    model_load_started = time.perf_counter()
-                    encoder = Encoder(backend, graph, args.threads, args.performance_hint)
-                    model_load_ms = (time.perf_counter() - model_load_started) * 1000
-                    actual_device = str(encoder.providers[0]) if encoder.providers else "unknown"
-                    if backend == "openvino-gpu" and "GPU" not in actual_device.upper():
-                        raise RuntimeError(f"OpenVINO GPU requested but runtime reports {actual_device!r}")
-                    services.start_embedding_adapter(encoder)
-                    for run_number in range(1, args.runs + 1):
+            for run_number in range(1, args.runs + 1):
+                # Every repetition starts with empty SQLite and Chroma stores. Reusing the
+                # manifest would accumulate prior repetitions and invalidate count checks
+                # as well as repeatability measurements.
+                with tempfile.TemporaryDirectory(
+                    prefix=f"flossware-ingestion-{backend}-run-{run_number}-"
+                ) as temp:
+                    state_dir = Path(temp)
+                    with IsolatedServices(poc_root, state_dir, model_dir) as services:
+                        model_load_started = time.perf_counter()
+                        encoder = Encoder(backend, graph, args.threads, args.performance_hint)
+                        model_load_ms = (time.perf_counter() - model_load_started) * 1000
+                        actual_device = str(encoder.providers[0]) if encoder.providers else "unknown"
+                        if backend == "openvino-gpu" and "GPU" not in actual_device.upper():
+                            raise RuntimeError(
+                                f"OpenVINO GPU requested but runtime reports {actual_device!r}"
+                            )
+                        services.start_embedding_adapter(encoder)
                         results.append(ingest_run(
                             services, backend, batch_size, args.documents, run_number
-                        ) | {"device": actual_device, "graph": graph.name})
-                # Temporary service state and stores are removed only after all child processes stop.
+                        ) | {
+                            "device": actual_device, "graph": graph.name,
+                            "model_load_ms": model_load_ms,
+                        })
+                # Services stop before their isolated temporary stores are removed.
 
     result = write_result("ingestion", {
         "model": {
