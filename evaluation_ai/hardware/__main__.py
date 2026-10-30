@@ -21,7 +21,8 @@ def main() -> int:
     if args.json:
         print(profile.to_json())
     else:
-        print(f"Host: {profile.host.hostname} ({profile.host.distribution or profile.host.system})")
+        display_os = profile.host.distribution or profile.host.system
+        print(f"Host: {profile.host.hostname} ({display_os})")
         print(f"Architecture: {profile.host.architecture}")
         print(f"Memory: {profile.host.memory_total_bytes or 'unknown'} bytes")
         print(f"CPU: {profile.cpu.model or 'unknown'}")
