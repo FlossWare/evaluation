@@ -133,9 +133,13 @@ def score(expected_entities: list[dict[str, Any]], expected_relations: list[dict
     )
     relation_expected = {relation_key(r) for r in expected_relations}
     relation_actual = {relation_key(r) for r in actual_relations}
+    relation_matches = relation_expected & relation_actual
     return {
         "entities": prf(expected_keys, actual_keys),
         "relations": prf(relation_expected, relation_actual),
+        "relation_expected_count": len(relation_expected),
+        "relation_actual_count": len(relation_actual),
+        "relation_matched_count": len(relation_matches),
         "canonical_name_accuracy": round(canonical_correct / canonical_total, 4) if canonical_total else None,
         "attribute_exact_accuracy": round(attribute_correct / canonical_total, 4) if canonical_total else None,
         "expected_entity_count": len(expected_keys),
@@ -253,21 +257,17 @@ def aggregate(rows: list[dict[str, Any]], field: str) -> dict[str, float]:
     tp = fp = fn = 0
     for row in rows:
         metrics = row[field]
-        expected = metrics.get("expected_entity_count") if field == "entities" else None
-        actual = metrics.get("actual_entity_count") if field == "entities" else None
-        matched = metrics.get("matched_entity_count") if field == "entities" else None
         if field == "entities":
-            tp += matched or 0
-            fp += (actual or 0) - (matched or 0)
-            fn += (expected or 0) - (matched or 0)
+            expected = metrics["expected_entity_count"]
+            actual = metrics["actual_entity_count"]
+            matched = metrics["matched_entity_count"]
         else:
-            # Relations use their per-case P/R/F1; aggregate macro scores here.
-            pass
-    if field == "relations":
-        return {
-            key: round(sum(row[field][key] for row in rows) / len(rows), 4)
-            for key in ("precision", "recall", "f1")
-        }
+            expected = metrics["relation_expected_count"]
+            actual = metrics["relation_actual_count"]
+            matched = metrics["relation_matched_count"]
+        tp += matched
+        fp += actual - matched
+        fn += expected - matched
     precision = tp / (tp + fp) if tp + fp else (1.0 if tp + fn == 0 else 0.0)
     recall = tp / (tp + fn) if tp + fn else (1.0 if tp + fp == 0 else 0.0)
     f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
