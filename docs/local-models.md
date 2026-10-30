@@ -188,10 +188,10 @@ for local scoring, but those labels are deliberately excluded from the prompt
 sent to the model. Treat result files as sensitive if the cases contain real
 transcripts.
 
-The summary reports JSON parse rate and accuracy against the synthetic
-expected outcomes. Accuracy is calculated over parseable judgments; inspect
-the parse rate too, since a model that emits invalid JSON should not get a
-free pass. This small fixture is a smoke/regression suite, not a statistically
+The summary reports JSON parse rate and accuracy over cases that have
+independently supplied expected labels. Unlabeled real-world samples report
+accuracy as `n/a`; inspect parse rate separately, since a model that emits
+invalid JSON should not get a free pass. This small fixture is a smoke/regression suite, not a statistically
 meaningful benchmark or proof that a judge is reliable.
 
 ### Use your own sanitized Thompson samples
