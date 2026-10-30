@@ -24,7 +24,9 @@ class OllamaError(RuntimeError):
     pass
 
 
-def request_json(base_url: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+def request_json(
+    base_url: str, path: str, payload: dict[str, Any] | None = None
+) -> dict[str, Any]:
     data = None if payload is None else json.dumps(payload).encode("utf-8")
     request = Request(
         base_url.rstrip("/") + path,
