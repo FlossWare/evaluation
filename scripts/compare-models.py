@@ -186,7 +186,10 @@ async def run(args: argparse.Namespace) -> int:
                 stream.write(json.dumps(record, ensure_ascii=False) + "\n")
                 stream.flush()
                 label = parsed["outcome"] if parsed else "INVALID/ERROR"
-                verdict = f" expected={expected} {'PASS' if is_correct else 'MISMATCH'}" if expected else ""
+                verdict = (
+                    f" expected={expected} {'PASS' if is_correct else 'MISMATCH'}"
+                    if expected else ""
+                )
                 print(f"{record['case_id']}: {label}{verdict} ({elapsed:.1f}s)", flush=True)
                 if error:
                     print(f"  {error}", flush=True)
