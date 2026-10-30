@@ -24,7 +24,12 @@ def test_extract_json_accepts_expected_judgment():
 
 def test_extract_json_accepts_markdown_fence():
     fence = chr(96) * 3
-    raw = fence + 'json\n{"outcome":"success","confidence":0.9,"evidence":["Thanks"],"rationale":"Clear completion."}\n' + fence
+    raw = (
+        fence
+        + 'json\n{"outcome":"success","confidence":0.9,"evidence":["Thanks"],'
+        + '"rationale":"Clear completion."}\n'
+        + fence
+    )
     parsed = compare_models.extract_json(raw)
     assert parsed is not None
     assert parsed["outcome"] == "success"
