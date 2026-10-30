@@ -149,7 +149,7 @@ For another Ollama endpoint or model root, use `--url` and
 `--models-dir`:
 
 ~~~bash
-python3 scripts/model-catalog.py --url http://127.0.0.1:11434 \\
+python3 scripts/model-catalog.py --url http://127.0.0.1:11434 \
   --models-dir "$HOME/.FlossWare/models" snapshot qwen3.5:2b
 ~~~
 
@@ -168,8 +168,8 @@ reasonable clarification followed by completion.
 Run several already-installed models against exactly the same cases:
 
 ~~~bash
-python3 scripts/compare-models.py \\
-  --models qwen3.5:2b,gemma4:e2b \\
+python3 scripts/compare-models.py \
+  --models qwen3.5:2b,gemma4:e2b \
   --cases tests/fixtures/thompson-outcome-cases.jsonl
 ~~~
 
@@ -210,11 +210,11 @@ Example:
 Then run:
 
 ~~~bash
-python3 scripts/compare-models.py \\
-  --models qwen3.5:2b,gemma4:e2b,qwen3.5:4b \\
-  --cases "$HOME/tmp/thompson-samples.jsonl" \\
-  --num-ctx 4096 \\
-  --num-predict 512 \\
+python3 scripts/compare-models.py \
+  --models qwen3.5:2b,gemma4:e2b,qwen3.5:4b \
+  --cases "$HOME/tmp/thompson-samples.jsonl" \
+  --num-ctx 4096 \
+  --num-predict 512 \
   --keep-alive 2m
 ~~~
 
