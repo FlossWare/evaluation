@@ -1,4 +1,5 @@
 """Best-effort hardware discovery using the Python standard library."""
+
 from __future__ import annotations
 
 import glob
@@ -7,7 +8,7 @@ import platform
 import re
 import shutil
 import socket
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 from pathlib import Path
 
 from evaluation_ai.hardware.models import (
@@ -169,7 +170,7 @@ def discover_hardware(
         warnings.append("Linux DRM sysfs is unavailable; GPU discovery was skipped.")
     return HardwareProfile(
         schema_version=SCHEMA_VERSION,
-        discovered_at=datetime.now(timezone.utc).isoformat(),
+        discovered_at=datetime.now(UTC).isoformat(),
         host=host,
         cpu=_cpu_profile(proc),
         gpus=_gpu_profiles(sysfs),
