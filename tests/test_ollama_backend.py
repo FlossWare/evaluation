@@ -36,9 +36,25 @@ def test_ollama_backend_maps_chat_response():
         "total_duration": 1000,
     }
 
+    def fake_urlopen(request, timeout=0):
+        if request.full_url.endswith("/api/chat"):
+            return FakeHTTPResponse(response_payload)
+        if request.full_url.endswith("/api/version"):
+            return FakeHTTPResponse({"version": "0.12.6"})
+        if request.full_url.endswith("/api/tags"):
+            return FakeHTTPResponse({
+                "models": [{
+                    "name": "qwen3.5:2b",
+                    "model": "qwen3.5:2b",
+                    "digest": "sha256:abc123",
+                    "details": {"family": "qwen3", "parameter_size": "2B"},
+                }]
+            })
+        raise AssertionError(request.full_url)
+
     with patch(
         "evaluation_ai.backends.ollama.urlopen",
-        return_value=FakeHTTPResponse(response_payload),
+        side_effect=fake_urlopen,
     ) as mocked:
         result = asyncio.run(
             backend.chat(
@@ -53,8 +69,14 @@ def test_ollama_backend_maps_chat_response():
     assert result.model == "qwen3.5:2b"
     assert result.provider == "ollama"
     assert result.usage["prompt_eval_count"] == 42
+    assert result.model_identity["digest"] == "sha256:abc123"
+    assert result.model_identity["runtime_version"] == "0.12.6"
+    assert result.model_identity["identity_complete"] is True
 
-    request = mocked.call_args.args[0]
+    request = next(
+        call.args[0] for call in mocked.call_args_list
+        if call.args[0].full_url.endswith("/api/chat")
+    )
     sent = json.loads(request.data.decode("utf-8"))
     assert request.full_url == "http://127.0.0.1:11434/api/chat"
     assert sent["stream"] is False
