@@ -231,3 +231,35 @@ It judges the completed interaction, distinguishes presentation corrections
 from material errors, and returns `unknown` when the transcript is
 insufficient. It does not write labels back to source transcripts or update
 Thompson statistics.
+
+
+## Compare local models on entity extraction
+
+Entity extraction is a separate workload from Thompson outcome judgment. It
+uses the same optional Ollama backend and model identity capture, but a
+different prompt, labeled fixture set, output schema, and scoring profile.
+
+Run the fixture benchmark against exact model tags already installed:
+
+~~~bash
+python3 scripts/extract-entities.py \
+  --models qwen3.5:2b,gemma4:e2b \
+  --cases tests/fixtures/entity-extraction-cases.jsonl
+~~~
+
+The runner processes models and cases sequentially. Defaults remain
+temperature 0, seed 42, one 4K context, one request at a time, and a short
+model keep-alive. It does not download models, call cloud APIs, alter source
+text, or write to Thompson. Results go under
+`~/.FlossWare/models/runs/` with restrictive permissions where supported.
+
+The extraction schema requires exact source text, zero-based character
+offsets, a supported entity type, canonical name, scalar attributes, and
+explicit relationships with exact evidence excerpts. Invalid offsets,
+unsupported types, missing fields, or relationship evidence not found in the
+source make the response schema-invalid.
+
+The summary reports entity and relation precision, recall, and F1, plus
+canonical-name and exact-attribute accuracy for matched entities. These
+fixtures are a regression smoke test, not a representative corpus. Build a
+larger, independently reviewed gold set before selecting a production model.
