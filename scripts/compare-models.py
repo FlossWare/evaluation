@@ -135,6 +135,7 @@ async def run(args: argparse.Namespace) -> int:
                         temperature=args.temperature,
                         num_ctx=args.num_ctx,
                         num_predict=args.num_predict,
+                        seed=args.seed,
                     )
                 except Exception as exc:
                     error = f"{type(exc).__name__}: {exc}"
@@ -166,9 +167,14 @@ async def run(args: argparse.Namespace) -> int:
                         "temperature": args.temperature,
                         "num_ctx": args.num_ctx,
                         "num_predict": args.num_predict,
+                        "seed": args.seed,
                         "keep_alive": args.keep_alive,
                     },
-                    "latency_seconds": round(elapsed, 4),
+                    "wall_latency_seconds": round(elapsed, 4),
+                    "inference_seconds": (
+                        response.usage.get("total_duration", 0) / 1_000_000_000
+                        if response else None
+                    ),
                     "usage": response.usage if response else {},
                     "raw_response": response.content if response else None,
                     "parsed_judgment": parsed,
@@ -227,6 +233,7 @@ def main() -> int:
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--num-ctx", type=int, default=4096)
     parser.add_argument("--num-predict", type=int, default=512)
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--keep-alive", default="2m")
     parser.add_argument("--timeout", type=float, default=300.0)
     args = parser.parse_args()
