@@ -116,7 +116,11 @@ class OllamaBackend:
             self._resolve_model_identity, resolved_model
         )
         identity = identity_before
-        if identity_before.get("digest") != identity_after.get("digest"):
+        if (
+            identity_before.get("digest")
+            and identity_after.get("digest")
+            and identity_before.get("digest") != identity_after.get("digest")
+        ):
             identity = dict(identity_before)
             identity["identity_complete"] = False
             identity["identity_error"] = "model_digest_changed_during_inference"
