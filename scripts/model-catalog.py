@@ -119,7 +119,9 @@ def save_snapshot(base_url: str, models_dir: Path, reference: str) -> dict[str, 
     inspected = inspect_model(base_url, selected)
     digest = inspected.get("digest")
     if not isinstance(digest, str) or not digest:
-        raise OllamaError("Ollama did not provide a model digest; refusing to catalog an unpinned model")
+        raise OllamaError(
+            "Ollama did not provide a model digest; refusing to catalog an unpinned model"
+        )
 
     record = {
         "captured_at": datetime.now(timezone.utc).isoformat(),
