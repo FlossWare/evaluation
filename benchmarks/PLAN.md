@@ -1,6 +1,10 @@
 # Evaluation plan
 
-## Ownership\n\nThe benchmark harness lives in the `FlossWare/evaluation` repository. The system under test is a separate `FlossWare/poc-claude-ensemble` checkout, resolved through `POC_CLAUDE_ENSEMBLE_ROOT` or the sibling directory. Benchmark artifacts are owned by this repository; service code and live CE data are not modified.\n\n## Goal
+## Ownership
+
+The benchmark harness lives in the `FlossWare/evaluation` repository. The system under test is a separate `FlossWare/poc-claude-ensemble` checkout, resolved through `POC_CLAUDE_ENSEMBLE_ROOT` or the sibling directory. Benchmark artifacts are owned by this repository; service code and live CE data are not modified.
+
+## Goal
 
 Establish a reproducible baseline for every performance-sensitive component in poc-claude-ensemble, then compare alternative libraries, providers, models, and algorithms without changing service contracts or mixing performance results with retrieval-quality results.
 
