@@ -81,7 +81,7 @@ Implemented runners: embedding CPU baseline, exact/argpartition/Chroma HNSW vect
 
 The current relevance fixtures are deliberately small smoke datasets, not a statistically credible acceptance corpus. Expand them with representative, privacy-safe queries and independently judged relevance labels before using quality deltas to make production decisions.
 
-Not yet implemented: ONNX Runtime OpenVINO CPU/GPU provider comparisons, exported/quantized reranker comparisons, isolated full-pipeline ingestion/search tests, streaming TTFT, peak RSS sampling, and consolidated cross-run reports. These remain explicit follow-up work rather than implied capabilities of the current runners.
+Not yet implemented: exported/quantized reranker comparisons, streaming TTFT, peak RSS sampling, and consolidated cross-run reports. The isolated ingestion runner is implemented but still requires hardware execution and repeatability review before its results can support a POC backend change.
 
 ## Suggested implementation order
 
@@ -89,5 +89,5 @@ Not yet implemented: ONNX Runtime OpenVINO CPU/GPU provider comparisons, exporte
 2. Add OpenVINO provider/device variants without silently falling back to CPU.
 3. Add reranker ONNX/OpenVINO variants and validated quantization.
 4. Expand retrieval and reranking relevance judgments.
-5. Build an isolated temporary service deployment for end-to-end ingestion/search.
+5. Run the isolated ingestion benchmark on laptop-02 for CPU FP32 and OpenVINO GPU FP16, including batch sizes 16, 32, and 64; review repeatability and retrieval checks.
 6. Add streaming TTFT, resource sampling, and consolidated reports.
