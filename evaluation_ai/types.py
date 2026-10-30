@@ -1,11 +1,11 @@
 """Shared data types for the evaluation-ai package.
 
-All types are plain ``dataclasses`` with no external dependencies.
+All types are plain dataclasses with no external dependencies.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -18,22 +18,24 @@ class ChatMessage:
 
 @dataclass
 class ChatResponse:
-    """Response returned by an LLM backend."""
+    """Response returned by an LLM backend, including resolved model identity."""
 
     content: str
     model: str = ""
     provider: str = ""
     usage: dict = field(default_factory=dict)
+    model_identity: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class EvaluationResult:
-    """Aggregated evaluation result from the multi-model harness."""
+    """Aggregated evaluation result with evaluator identity and provenance."""
 
     verdict: str
     scores: dict = field(default_factory=dict)
     reasoning: str = ""
     evaluator_models: list[str] = field(default_factory=list)
+    evaluator_metadata: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
