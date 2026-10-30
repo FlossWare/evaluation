@@ -24,7 +24,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from evaluation_ai.backends.ollama import OllamaBackend
 from evaluation_ai.types import ChatMessage
 
-DEFAULT_SYSTEM_PROMPT = Path(__file__).resolve().parents[1] / "prompts" / "thompson-outcome-judge.md"
+DEFAULT_SYSTEM_PROMPT = (
+    Path(__file__).resolve().parents[1] / "prompts" / "thompson-outcome-judge.md"
+)
 
 
 def load_jsonl(path: Path) -> list[dict[str, Any]]:
