@@ -177,8 +177,10 @@ The runner processes models and cases sequentially. It does not parallelize
 inference, download models, call cloud APIs, or write to Thompson. Defaults
 are temperature 0, seed 42, one 4K context, and one request at a time. It records
 wall-clock latency separately from Ollama's inference duration, prompt/output
-token counts when Ollama provides them, raw response,
-parsed judgment, model digest, Ollama version, and generation settings.
+token counts when Ollama provides them, raw response, parsed judgment, model
+digest, Ollama version, generation settings, and SHA-256 hashes of the input
+transcript and judge rubric. The hashes support later audit without copying
+the transcript into the result file.
 
 Detailed JSONL results are written by default beneath
 `~/.FlossWare/models/runs/`. The output contains the input's expected labels
