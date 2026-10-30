@@ -33,3 +33,18 @@ Evaluation results should distinguish measured facts, evaluator judgments, confi
 ## Packaging note
 
 The repository is named `evaluation`. The current distribution/import identifiers remain `evaluation-ai` and `evaluation_ai`; repository naming does not automatically rename a published package or Python imports. Change those identifiers only through an explicit compatibility and release decision.
+
+## Hardware discovery
+
+The optional, runtime-neutral hardware profile API records host, CPU, Linux
+DRM GPU, and installed diagnostic-tool facts without adding runtime
+dependencies. Discovery is explicit and does not imply that an inference
+backend is supported or GPU-qualified.
+
+```bash
+python -m evaluation_ai.hardware discover
+python -m evaluation_ai.hardware discover --json
+```
+
+See [Hardware profiles](docs/hardware-profiles.md) for the schema and
+discovery/qualification boundary.
