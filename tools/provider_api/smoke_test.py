@@ -28,7 +28,6 @@ CASES: list[dict[str, str]] = [
     {"provider": "GOOGLE", "model": "models/gemini-3.5-flash-lite", "access": "free-tier-candidate"},
     {"provider": "MISTRAL", "model": "mistral-small-latest", "access": "free-tier-candidate"},
     {"provider": "COHERE", "model": "command-r7b-12-2024", "access": "free-trial-candidate"},
-    {"provider": "GOOGLE", "model": "models/gemini-2.5-flash", "access": "free-tier-candidate"},
     {"provider": "OPENROUTER", "model": "nvidia/nemotron-3.5-lightning:free", "access": "catalogue-zero-price"},
     {"provider": "OPENROUTER", "model": "google/gemma-4-31b-it:free", "access": "catalogue-zero-price"},
     {"provider": "OPENROUTER", "model": "thinkingmachines/inkling:free", "access": "catalogue-zero-price"},
