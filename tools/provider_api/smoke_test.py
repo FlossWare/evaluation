@@ -182,12 +182,46 @@ PAID_ACCESS = {
 
 
 def representative_cases(include_paid: bool) -> dict[str, dict[str, str]]:
-    """Choose at most one catalogue candidate per provider, preserving catalogue order."""
+    """Choose at most one eligible catalogue candidate per provider."""
     selected: dict[str, dict[str, str]] = {}
     for case in CASES:
         if case["access"] not in DEPRECATED_ACCESS and (include_paid or case["access"] not in PAID_ACCESS):
             selected.setdefault(case["provider"], case)
     return selected
+
+
+def plan_all_configured(include_paid: bool = False) -> list[dict[str, Any]]:
+    """Build a complete provider plan without making network requests."""
+    selected = representative_cases(include_paid)
+    plan: list[dict[str, Any]] = []
+    for provider in sorted(ENV_VARS):
+        _, env_name = resolve_credential(provider)
+        candidates = [case for case in CASES if case["provider"] == provider]
+        case = selected.get(provider)
+        item: dict[str, Any] = {
+            "provider": provider,
+            "credential_env": env_name,
+            "credential_configured": bool(env_name),
+            "model_requested": case["model"] if case else None,
+            "access_classification": case["access"] if case else None,
+        }
+        if not env_name:
+            item["status"] = "skipped-no-credential"
+        elif case:
+            item["status"] = "ready"
+        elif candidates and all(c["access"] in DEPRECATED_ACCESS for c in candidates):
+            item["status"] = "skipped-deprecated-endpoint"
+            item["model_requested"] = candidates[0]["model"]
+            item["access_classification"] = candidates[0]["access"]
+        elif candidates and not include_paid and all(c["access"] in PAID_ACCESS or c["access"] in DEPRECATED_ACCESS for c in candidates):
+            item["status"] = "skipped-paid-opt-in-required"
+            eligible = next((c for c in candidates if c["access"] in PAID_ACCESS), candidates[0])
+            item["model_requested"] = eligible["model"]
+            item["access_classification"] = eligible["access"]
+        else:
+            item["status"] = "skipped-no-chat-candidate"
+        plan.append(item)
+    return plan
 
 
 def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[str, Any]:
@@ -359,7 +393,7 @@ def main() -> int:
     parser.add_argument("--provider", action="append", choices=sorted(ENV_VARS),
                         help="Run only this provider; repeat to select several.")
     parser.add_argument("--all-configured", action="store_true",
-                        help="Run one representative candidate per provider; paid-only candidates require --include-paid.")
+                        help="Iterate every known provider; run one free/trial candidate where available and report all others as skipped.")
     parser.add_argument("--model",
                         help="Run only this exact configured model ID; combine with --provider to validate its provider.")
     parser.add_argument("--include-paid", action="store_true",
@@ -433,39 +467,24 @@ def main() -> int:
             parser.error(f"Model {args.model!r} is configured for {configured}, not the selected provider(s).")
 
     if args.all_configured:
-        # One representative model per provider. Never fan out across every
-        # catalogue candidate, and never opt into paid candidates implicitly.
-        selected_by_provider = representative_cases(args.include_paid)
-
+        # Plan every provider first. Only free/trial/zero-price candidates run
+        # by default; paid-only and deprecated providers are explicitly recorded.
+        # At most one candidate per provider is ever invoked in this batch.
         results = []
-        for provider in sorted(ENV_VARS):
-            key_configured = bool(resolve_credential(provider)[0])
-            case = selected_by_provider.get(provider)
-            if not key_configured:
-                results.append({
-                    "provider": provider, "model_requested": case["model"] if case else None,
-                    "credential_configured": False, "http_status": None,
-                    "latency_seconds": None, "status": "skipped-no-credential",
-                    "retry_performed": False,
-                })
-            elif case is None:
-                paid_case = next((c for c in CASES if c["provider"] == provider), None)
-                skip_status = (
-                    "skipped-deprecated-endpoint"
-                    if paid_case and paid_case["access"] in DEPRECATED_ACCESS
-                    else "skipped-paid-opt-in-required"
-                    if paid_case else "skipped-no-chat-candidate"
+        for item in plan_all_configured(args.include_paid):
+            if item["status"] == "ready":
+                case = next(
+                    c for c in CASES
+                    if c["provider"] == item["provider"] and c["model"] == item["model_requested"]
                 )
-                results.append({
-                    "provider": provider,
-                    "model_requested": paid_case["model"] if paid_case else None,
-                    "credential_configured": True, "http_status": None,
-                    "latency_seconds": None, "status": skip_status,
-                    "access_classification": paid_case["access"] if paid_case else None,
+                results.append(request_case(case, args.timeout, args.max_output_tokens))
+            else:
+                item.update({
+                    "http_status": None,
+                    "latency_seconds": None,
                     "retry_performed": False,
                 })
-            else:
-                results.append(request_case(case, args.timeout, args.max_output_tokens))
+                results.append(item)
     else:
         selected = [
             case for case in CASES
@@ -498,6 +517,21 @@ def main() -> int:
     passed = sum(item["status"] == "passed" for item in results)
     skipped = sum(item["status"].startswith("skipped-") for item in results)
     failed = len(results) - passed - skipped
+    if args.all_configured:
+        by_reason = {
+            reason: sum(item["status"] == reason for item in results)
+            for reason in (
+                "skipped-no-credential",
+                "skipped-paid-opt-in-required",
+                "skipped-deprecated-endpoint",
+                "skipped-no-chat-candidate",
+            )
+        }
+        print(f"\nProvider inventory: {len(results)} providers examined.")
+        print(f"Eligible requests: {len(results) - skipped}; passed: {passed}; failed: {failed}.")
+        for reason, count in by_reason.items():
+            if count:
+                print(f"  {reason}: {count}")
     print(f"\nSummary: {passed} passed, {failed} failed, {skipped} skipped; {len(results)} selected.")
     print(f"Evidence: {args.output}")
     print("No retries performed. Review provider billing/usage independently; catalogue price is not a bill.")
