@@ -1085,8 +1085,42 @@ def main() -> int:
         return 0
 
     if args.capability != "chat":
-        if args.model or args.include_paid or args.openrouter_free_matrix:
-            parser.error("--model, --include-paid, and --openrouter-free-matrix currently apply only to chat")
+        if args.model or args.openrouter_free_matrix:
+            parser.error("--model and --openrouter-free-matrix currently apply only to chat")
+        if args.include_paid and not (args.all_configured or args.provider):
+            parser.error("--include-paid requires --all-configured or an explicit --provider selection")
+        if args.all_configured or args.provider:
+            results = execute_embedding_selection(
+                args.capability,
+                args.timeout,
+                args.include_paid,
+                args.provider,
+            )
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            with args.output.open("a", encoding="utf-8") as stream:
+                for item in results:
+                    stream.write(json.dumps(item, ensure_ascii=False) + "\n")
+            passed = sum(item["status"] == "passed" for item in results)
+            skipped = sum(item["status"].startswith("skipped-") for item in results)
+            failed = len(results) - passed - skipped
+            print(f"Capability: {args.capability}")
+            print(f"Provider/account rows: {len(results)}; passed: {passed}; failed: {failed}; skipped: {skipped}.")
+            for item in results:
+                http = item.get("http_status") if item.get("http_status") is not None else "-"
+                latency = item.get("latency_seconds") if item.get("latency_seconds") is not None else "-"
+                print(
+                    f'{item["provider"]:10} {item.get("account", "DEFAULT"):10} '
+                    f'{item.get("model_requested") or "-":32} {item["status"]:30} '
+                    f'HTTP={http} latency={latency}s dimensions={item.get("embedding_dimensions") or "-"}'
+                )
+                detail = error_summary(item.get("error"))
+                if detail:
+                    category = item.get("http_error_category") or "provider-error"
+                    print(f"  detail [{category}]: {detail}")
+            print(f"Evidence: {args.output}")
+            print("No retries performed. Only free/trial candidates run unless --include-paid is explicitly supplied.")
+            return 0 if failed == 0 else 1
+
         results = capability_plan(args.capability, args.provider)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with args.output.open("a", encoding="utf-8") as stream:
@@ -1094,9 +1128,10 @@ def main() -> int:
                 stream.write(json.dumps(item, ensure_ascii=False) + "\n")
         unsupported = sum(item["status"] == "skipped-no-capability-adapter" for item in results)
         missing = sum(item["status"] == "skipped-no-credential" for item in results)
+        ready = sum(item["status"] == "ready" for item in results)
         print(f"Capability: {args.capability}")
-        print(f"Provider/account rows: {len(results)}; adapters not implemented: {unsupported}; no credentials: {missing}.")
-        print("No provider requests were made. These rows are explicit adapter backlog, not inference failures.")
+        print(f"Provider/account rows: {len(results)}; adapters available: {ready}; adapters not implemented: {unsupported}; no credentials: {missing}.")
+        print("Planning only: no provider requests were made. Use --all-configured or --provider to execute eligible adapters.")
         print(f"Evidence: {args.output}")
         return 0
 
