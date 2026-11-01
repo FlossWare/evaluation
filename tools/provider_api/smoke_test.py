@@ -60,6 +60,25 @@ def safe_text(value: Any, secret: str) -> str:
     return text[:2000]
 
 
+def build_headers(provider: str, key: str) -> dict[str, str]:
+    """Build explicit application-identifying headers for provider API requests."""
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        # Cloudflare Error 1010 can reject urllib's default Python-urllib user agent.
+        # Identify the client honestly; do not impersonate a browser.
+        "User-Agent": "FlossWare-ProviderSmoke/0.1",
+    }
+    if provider == "GOOGLE":
+        headers["x-goog-api-key"] = key
+    else:
+        headers["Authorization"] = f"Bearer {key}"
+    if provider == "OPENROUTER":
+        headers["HTTP-Referer"] = "https://flossware.org"
+        headers["X-Title"] = "FlossWare provider API smoke test"
+    return headers
+
+
 def classify_response(text: str, finish_reason: str | None, reasoning_tokens: int) -> tuple[str, str, bool]:
     """Return (completeness, status, semantic_match) for one model response."""
     semantic_match = text.strip() == EXPECTED
@@ -111,7 +130,6 @@ def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[
             "contents": [{"role": "user", "parts": [{"text": PROMPT}]}],
             "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0},
         }
-        headers = {"x-goog-api-key": key, "Content-Type": "application/json"}
     else:
         url = OPENAI_COMPATIBLE[provider]
         payload = {
@@ -121,10 +139,7 @@ def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[
             "temperature": 0,
             "stream": False,
         }
-        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
-        if provider == "OPENROUTER":
-            headers["HTTP-Referer"] = "https://flossware.org"
-            headers["X-Title"] = "FlossWare provider API smoke test"
+    headers = build_headers(provider, key)
 
     request = urllib.request.Request(
         url,
