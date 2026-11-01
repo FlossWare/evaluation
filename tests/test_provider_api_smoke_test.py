@@ -578,7 +578,10 @@ class EmbeddingAdapterTests(unittest.TestCase):
                     "access": "test",
                 })
                 self.assertTrue(url.startswith("https://"))
-                self.assertEqual(payload["model"], model)
+                if provider != "GOOGLE":
+                    self.assertEqual(payload["model"], model)
+                else:
+                    self.assertIn(model, url)
                 self.assertTrue(
                     payload.get("content") or payload.get("texts") or payload.get("input")
                 )
