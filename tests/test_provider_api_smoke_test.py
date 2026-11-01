@@ -113,9 +113,31 @@ class AllConfiguredPlanningTests(unittest.TestCase):
             self.assertEqual(plan["TOGETHER"]["status"], "skipped-no-provider-adapter")
             self.assertEqual(plan["FIREWORKS"]["status"], "skipped-no-provider-adapter")
 
-    def test_non_provider_tokens_are_not_misclassified_as_api_credentials(self):
+    def test_account_scoped_api_keys_are_discovered_separately(self):
+        from tools.provider_api.smoke_test import credential_accounts
+        with patch.dict("os.environ", {
+            "CEREBRAS_API_KEY_FLOSSWARE": "fw-secret",
+            "CEREBRAS_API_KEY_HOTMAIL": "hotmail-secret",
+            "CEREBRAS_API_KEY_NCRR": "ncrr-secret",
+            "GROQ_ORG_ID_FLOSSWARE": "org-id",
+        }, clear=True):
+            self.assertEqual(provider_from_env_name("CEREBRAS_API_KEY_HOTMAIL"), "CEREBRAS")
+            self.assertEqual(provider_from_env_name("CEREBRAS_API_KEY_NCRR"), "CEREBRAS")
+            accounts = credential_accounts("CEREBRAS")
+            self.assertEqual(
+                [(a["account"], a["credential_env"]) for a in accounts],
+                [
+                    ("FLOSSWARE", "CEREBRAS_API_KEY_FLOSSWARE"),
+                    ("HOTMAIL", "CEREBRAS_API_KEY_HOTMAIL"),
+                    ("NCRR", "CEREBRAS_API_KEY_NCRR"),
+                ],
+            )
+            plan = [p for p in plan_all_configured() if p["provider"] == "CEREBRAS"]
+            self.assertEqual([p["account"] for p in plan], ["FLOSSWARE", "HOTMAIL", "NCRR"])
+            self.assertTrue(all(p["status"] == "skipped-paid-opt-in-required" for p in plan))
         self.assertIsNone(provider_from_env_name("GITHUB_TOKEN"))
         self.assertIsNone(provider_from_env_name("AWS_SESSION_TOKEN"))
+        self.assertIsNone(provider_from_env_name("GROQ_ORG_ID_FLOSSWARE"))
 
     def test_paid_opt_in_only_changes_the_execution_plan(self):
         with patch.dict("os.environ", {
