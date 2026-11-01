@@ -195,7 +195,7 @@ def print_report(path: Path) -> int:
     if not path.exists():
         print(f"No evidence file found: {path}", file=sys.stderr)
         return 2
-    totals: dict[tuple[str, str, str], int] = {}
+    totals: dict[tuple[str, str, str, str], int] = {}
     errors: dict[tuple[str, str, str], int] = {}
     count = 0
     with path.open(encoding="utf-8") as stream:
@@ -208,16 +208,16 @@ def print_report(path: Path) -> int:
             account = str(item.get("account") or "DEFAULT")
             capability = str(item.get("capability") or "chat")
             status = str(item.get("status") or "unknown")
-            totals[(provider, account, status)] = totals.get((provider, account, status), 0) + 1
+            totals[(provider, account, capability, status)] = totals.get((provider, account, capability, status), 0) + 1
             if status not in {"passed"} and not status.startswith("skipped-"):
                 category = str(item.get("http_error_category") or status)
                 errors[(provider, account, category)] = errors.get((provider, account, category), 0) + 1
             count += 1
     print(f"Evidence report: {path}")
     print(f"Records: {count}")
-    print(f"{'PROVIDER':16} {'ACCOUNT':10} {'STATUS':34} COUNT")
-    for (provider, account, status), total in sorted(totals.items()):
-        print(f"{provider:16} {account:10} {status:34} {total}")
+    print(f"{'PROVIDER':16} {'ACCOUNT':10} {'CAPABILITY':20} {'STATUS':34} COUNT")
+    for (provider, account, capability, status), total in sorted(totals.items()):
+        print(f"{provider:16} {account:10} {capability:20} {status:34} {total}")
     if errors:
         print("\nFailure categories:")
         for (provider, account, category), total in sorted(errors.items()):
@@ -799,7 +799,7 @@ def main() -> int:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with args.output.open("a", encoding="utf-8") as stream:
             for item in results:
-                stream.write(json.dumps(item, ensure_ascii=False) + "\\n")
+                stream.write(json.dumps(item, ensure_ascii=False) + "\n")
         unsupported = sum(item["status"] == "skipped-no-capability-adapter" for item in results)
         missing = sum(item["status"] == "skipped-no-credential" for item in results)
         print(f"Capability: {args.capability}")
