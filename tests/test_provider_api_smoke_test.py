@@ -231,6 +231,14 @@ class HttpErrorClassificationTests(unittest.TestCase):
             "account-credit-or-billing-required",
         )
 
+    def test_jina_403_insufficient_balance_is_classified_as_billing_limit(self):
+        from tools.provider_api.smoke_test import classify_http_error
+
+        self.assertEqual(
+            classify_http_error(403, "Insufficient account balance. Top up your account."),
+            "insufficient-account-balance",
+        )
+
     def test_non_402_is_not_a_billing_failure(self):
         from tools.provider_api.smoke_test import classify_http_error
         self.assertIsNone(classify_http_error(403, "Forbidden"))
