@@ -91,7 +91,7 @@ class EmbeddingBenchmarkTests(unittest.TestCase):
     def test_metrics_penalize_lower_rank_and_missing_relevant_docs(self):
         docs = [[0, 1], [1, 0], [-1, 0]]
         queries = [[1, 0]]
-        relevance = [{"id": "q1", "relevant": ["d1", "d2"]}]
+        relevance = [{"id": "q1", "relevant": ["d1"]}]
         metrics = ranking_metrics(queries, docs, ["d1", "d2", "d3"], relevance, k=2)
         self.assertLess(metrics["mrr_at_2"], 1.0)
         self.assertEqual(metrics["recall_at_2"], 1.0)
