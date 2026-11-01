@@ -25,6 +25,10 @@ env/
 .coverage
 htmlcov/
 
+# Provider API research outputs (local evidence, never commit by default)
+provider-model-catalogue.json
+provider-smoke-results*.jsonl
+
 # OS
 .DS_Store
 Thumbs.db
