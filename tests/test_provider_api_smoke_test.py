@@ -234,6 +234,32 @@ class HttpErrorClassificationTests(unittest.TestCase):
         from tools.provider_api.smoke_test import classify_http_error
         self.assertIsNone(classify_http_error(403, "Forbidden"))
 
+    def test_openrouter_agentic_only_403_is_classified(self):
+        from tools.provider_api.smoke_test import classify_http_error
+
+        detail = json.dumps({
+            "error": {
+                "message": "Provider returned error",
+                "metadata": {
+                    "raw": (
+                        "thinkingmachines/inkling-small:free is only available "
+                        "on agentic harnesses. Try plugging it into a coding agent."
+                    ),
+                    "provider_name": "Thinking Machines",
+                },
+            }
+        })
+        self.assertEqual(
+            classify_http_error(403, detail),
+            "agentic-harness-required",
+        )
+
+    def test_generic_403_remains_unclassified(self):
+        from tools.provider_api.smoke_test import classify_http_error
+
+        self.assertIsNone(classify_http_error(403, "Forbidden"))
+
+
     def test_openrouter_shared_pool_429_is_classified_as_upstream_rate_limit(self):
         from tools.provider_api.smoke_test import classify_http_error
 
