@@ -30,6 +30,38 @@ Loom defines execution and evidence semantics. `evaluation` supplies reusable ev
 
 Evaluation results should distinguish measured facts, evaluator judgments, confidence, and provenance. A successful transport call is not proof that the intended outcome was achieved.
 
+## Provider API research utilities
+
+Experimental provider-discovery and smoke-test scripts live under `tools/provider_api/`. They support the cross-project investigation documented in [FlossWare/research/provider-api-inference](https://github.com/FlossWare/research/tree/research/provider-api-inference-2026-11/provider-api-inference).
+
+These scripts are **research utilities, not part of the published `evaluation-ai` package**:
+
+- `catalogue_inventory.sh` reads authenticated provider model catalogues and writes a normalized local JSON report. It does not invoke models.
+- `smoke_test.py` sends a tiny synthetic prompt to selected catalogue-listed models and records transport/response evidence as JSONL.
+
+The harness does not own provider selection, routing, credential storage, retries, or production invocation. Those responsibilities remain with `model-gateway`. The harness reads only FlossWare-scoped environment variables and never accepts or prints credential values.
+
+### Run
+
+From the repository root, with the relevant `*_API_KEY_FLOSSWARE` variables exported:
+
+```bash
+bash tools/provider_api/catalogue_inventory.sh
+python3 tools/provider_api/smoke_test.py
+```
+
+The catalogue command writes `provider-model-catalogue.json`. The smoke test writes `provider-smoke-results.jsonl`. Both are local evidence artifacts and should be reviewed before sharing.
+
+The default smoke batch is limited to catalogue-marked OpenRouter `:free` models and the Gemini models observed in the initial catalogue. Paid or promotional-credit comparison models require explicit opt-in:
+
+```bash
+python3 tools/provider_api/smoke_test.py --include-paid
+```
+
+Select providers with repeatable `--provider` arguments. The script makes one non-streaming request per selected model, uses a small output limit, and performs no automatic retries. It captures total latency, HTTP status, request IDs, rate-limit headers, usage, finish reason, and whether the exact synthetic response was returned. It does not measure time-to-first-token; streaming belongs in the later capability suite.
+
+A zero price in a model catalogue is not a guarantee of availability or account eligibility. Check provider billing and account terms independently. Never send real user data, proprietary code, or secrets in these tests.
+
 ## Packaging note
 
 The repository is named `evaluation`. The current distribution/import identifiers remain `evaluation-ai` and `evaluation_ai`; repository naming does not automatically rename a published package or Python imports. Change those identifiers only through an explicit compatibility and release decision.
