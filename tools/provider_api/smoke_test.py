@@ -100,11 +100,20 @@ def provider_from_env_name(env_name: str) -> str | None:
     }
     if env_name in explicit:
         return explicit[env_name]
-    match = re.fullmatch(r"([A-Z][A-Z0-9_]*)_(?:API_KEY(?:_FLOSSWARE)?|API_TOKEN|AUTH_TOKEN)", env_name)
+    match = re.fullmatch(
+        r"([A-Z][A-Z0-9_]*)_(?:API_KEY(?:_(?:FLOSSWARE|HOTMAIL|NCRR))?|API_TOKEN|AUTH_TOKEN)",
+        env_name,
+    )
     if not match:
         return None
     provider = match.group(1)
     return {"HF": "HUGGINGFACE", "HUGGING_FACE": "HUGGINGFACE", "GEMINI": "GOOGLE"}.get(provider, provider)
+
+
+def credential_account_from_env_name(env_name: str) -> str:
+    """Return the account namespace encoded in a credential variable name."""
+    match = re.fullmatch(r"[A-Z][A-Z0-9_]*_API_KEY_(FLOSSWARE|HOTMAIL|NCRR)", env_name)
+    return match.group(1) if match else "DEFAULT"
 
 
 def discovered_provider_names() -> list[str]:
@@ -118,22 +127,40 @@ def discovered_provider_names() -> list[str]:
 
 
 def credential_variable_names(provider: str) -> tuple[str, ...]:
-    """Return ordered credential variable names for a provider, without reading values."""
-    primary = ENV_VARS.get(provider, f"{provider}_API_KEY_FLOSSWARE")
-    names = [primary, *ENV_VAR_ALIASES.get(provider, ())]
-    names.extend(
-        name for name in os.environ
-        if provider_from_env_name(name) == provider
-    )
-    return tuple(dict.fromkeys(names))
+    """Return all configured credential variable names, with FlossWare first."""
+    names = [name for name in os.environ if provider_from_env_name(name) == provider]
+    aliases = ENV_VAR_ALIASES.get(provider, ())
+    names.extend(name for name in aliases if name in os.environ)
+    primary = ENV_VARS.get(provider)
+    if primary and primary in os.environ:
+        names.append(primary)
+    rank = {"FLOSSWARE": 0, "HOTMAIL": 1, "NCRR": 2, "DEFAULT": 3}
+    unique = dict.fromkeys(names)
+    return tuple(sorted(
+        unique,
+        key=lambda name: (rank.get(credential_account_from_env_name(name), 3), name),
+    ))
+
+
+def credential_accounts(provider: str) -> list[dict[str, str]]:
+    """Return each configured account credential separately; never merge accounts."""
+    accounts: list[dict[str, str]] = []
+    for env_name in credential_variable_names(provider):
+        value = os.environ.get(env_name, "").strip()
+        if value:
+            accounts.append({
+                "account": credential_account_from_env_name(env_name),
+                "credential_env": env_name,
+                "credential": value,
+            })
+    return accounts
 
 
 def resolve_credential(provider: str) -> tuple[str, str | None]:
-    """Return credential and source variable name without exposing its value."""
-    for env_name in credential_variable_names(provider):
-        value = os.environ.get(env_name, "")
-        if value.strip():
-            return value.strip(), env_name
+    """Return the preferred credential and source variable name."""
+    accounts = credential_accounts(provider)
+    if accounts:
+        return accounts[0]["credential"], accounts[0]["credential_env"]
     return "", None
 
 
@@ -235,47 +262,66 @@ def representative_cases(include_paid: bool) -> dict[str, dict[str, str]]:
 
 
 def plan_all_configured(include_paid: bool = False) -> list[dict[str, Any]]:
-    """Build a complete provider plan without making network requests."""
+    """Build a provider/account plan without making network requests."""
     selected = representative_cases(include_paid)
     plan: list[dict[str, Any]] = []
     for provider in discovered_provider_names():
-        _, env_name = resolve_credential(provider)
+        accounts = credential_accounts(provider)
+        account_rows = accounts or [{
+            "account": "DEFAULT",
+            "credential_env": None,
+            "credential": "",
+        }]
         candidates = [case for case in CASES if case["provider"] == provider]
         case = selected.get(provider)
-        item: dict[str, Any] = {
-            "provider": provider,
-            "credential_env": env_name,
-            "credential_configured": bool(env_name),
-            "model_requested": case["model"] if case else None,
-            "access_classification": case["access"] if case else None,
-        }
-        if not env_name:
-            item["status"] = "skipped-no-credential"
-        elif case:
-            item["status"] = "ready"
-        elif candidates and all(c["access"] in DEPRECATED_ACCESS for c in candidates):
-            item["status"] = "skipped-deprecated-endpoint"
-            item["model_requested"] = candidates[0]["model"]
-            item["access_classification"] = candidates[0]["access"]
-        elif provider not in {"GOOGLE", "COHERE", *OPENAI_COMPATIBLE}:
-            item["status"] = "skipped-no-provider-adapter"
-        elif candidates and not include_paid and all(c["access"] in PAID_ACCESS or c["access"] in DEPRECATED_ACCESS for c in candidates):
-            item["status"] = "skipped-paid-opt-in-required"
-            eligible = next((c for c in candidates if c["access"] in PAID_ACCESS), candidates[0])
-            item["model_requested"] = eligible["model"]
-            item["access_classification"] = eligible["access"]
-        else:
-            item["status"] = "skipped-no-chat-candidate"
-        plan.append(item)
+        for account in account_rows:
+            env_name = account["credential_env"]
+            item: dict[str, Any] = {
+                "provider": provider,
+                "account": account["account"],
+                "credential_env": env_name,
+                "credential_configured": bool(env_name),
+                "model_requested": case["model"] if case else None,
+                "access_classification": case["access"] if case else None,
+            }
+            if not env_name:
+                item["status"] = "skipped-no-credential"
+            elif case:
+                item["status"] = "ready"
+            elif candidates and all(c["access"] in DEPRECATED_ACCESS for c in candidates):
+                item["status"] = "skipped-deprecated-endpoint"
+                item["model_requested"] = candidates[0]["model"]
+                item["access_classification"] = candidates[0]["access"]
+            elif provider not in {"GOOGLE", "COHERE", *OPENAI_COMPATIBLE}:
+                item["status"] = "skipped-no-provider-adapter"
+            elif candidates and not include_paid and all(c["access"] in PAID_ACCESS or c["access"] in DEPRECATED_ACCESS for c in candidates):
+                item["status"] = "skipped-paid-opt-in-required"
+                eligible = next((c for c in candidates if c["access"] in PAID_ACCESS), candidates[0])
+                item["model_requested"] = eligible["model"]
+                item["access_classification"] = eligible["access"]
+            else:
+                item["status"] = "skipped-no-chat-candidate"
+            plan.append(item)
     return plan
 
 
-def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[str, Any]:
+def request_case(
+    case: dict[str, str],
+    timeout: float,
+    max_tokens: int,
+    credential_env: str | None = None,
+    account: str = "DEFAULT",
+) -> dict[str, Any]:
     provider, model = case["provider"], case["model"]
-    key, env_name = resolve_credential(provider)
+    if credential_env:
+        key = os.environ.get(credential_env, "").strip()
+        env_name = credential_env
+    else:
+        key, env_name = resolve_credential(provider)
     result: dict[str, Any] = {
         "observed_at": datetime.now(timezone.utc).isoformat(),
         "provider": provider,
+        "account": account,
         "model_requested": model,
         "requested_max_output_tokens": max_tokens,
         "access_classification": case["access"],
@@ -461,8 +507,11 @@ def main() -> int:
         if args.show_latest_errors or args.all_configured or args.provider or args.model or args.include_paid:
             parser.error("--show-credential-sources cannot be combined with other selection options")
         for provider in discovered_provider_names():
-            _, env_name = resolve_credential(provider)
-            print(f"{provider:10} {env_name or 'not configured'}")
+            names = [
+                name for name in credential_variable_names(provider)
+                if os.environ.get(name, "").strip()
+            ]
+            print(f"{provider:16} {', '.join(names) if names else 'not configured'}")
         print("Read-only: no credential values were displayed and no provider requests were made.")
         return 0
 
@@ -523,7 +572,13 @@ def main() -> int:
                     c for c in CASES
                     if c["provider"] == item["provider"] and c["model"] == item["model_requested"]
                 )
-                results.append(request_case(case, args.timeout, args.max_output_tokens))
+                results.append(request_case(
+                    case,
+                    args.timeout,
+                    args.max_output_tokens,
+                    credential_env=item.get("credential_env"),
+                    account=item.get("account", "DEFAULT"),
+                ))
             else:
                 item.update({
                     "http_status": None,
@@ -554,7 +609,8 @@ def main() -> int:
         http = item["http_status"] if item["http_status"] is not None else "-"
         latency = item["latency_seconds"] if item["latency_seconds"] is not None else "-"
         model_label = item["model_requested"] or "-"
-        print(f'{item["provider"]:10} {model_label:46} {status:30} HTTP={http} latency={latency}s')
+        account_label = item.get("account", "DEFAULT")
+        print(f'{item["provider"]:10} {account_label:10} {model_label:46} {status:30} HTTP={http} latency={latency}s')
         detail = error_summary(item.get("error"))
         if detail:
             category = item.get("http_error_category") or "provider-error"
