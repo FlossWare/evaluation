@@ -25,6 +25,21 @@ declare -A KEYS=(
   [OPENROUTER]=OPENROUTER_API_KEY_FLOSSWARE
 )
 
+# Space-separated aliases; FlossWare-scoped names retain precedence.
+declare -A ALIASES=(
+  [CEREBRAS]="CEREBRAS_API_KEY"
+  [COHERE]="COHERE_API_KEY"
+  [DEEPINFRA]="DEEPINFRA_API_KEY"
+  [DEEPSEEK]="DEEPSEEK_API_KEY"
+  [GOOGLE]="GOOGLE_API_KEY GEMINI_API_KEY"
+  [GROQ]="GROQ_API_KEY"
+  [HUGGINGFACE]="HUGGINGFACE_API_KEY HF_TOKEN HUGGING_FACE_HUB_TOKEN"
+  [MISTRAL]="MISTRAL_API_KEY"
+  [NVIDIA]="NVIDIA_API_KEY"
+  [OPENAI]="OPENAI_API_KEY"
+  [OPENROUTER]="OPENROUTER_API_KEY"
+)
+
 declare -A URLS=(
   [CEREBRAS]="https://api.cerebras.ai/v1/models"
   [COHERE]="https://api.cohere.com/v1/models"
@@ -45,6 +60,16 @@ RESULTS="$TMP/results.jsonl"
 for provider in CEREBRAS COHERE DEEPINFRA DEEPSEEK GOOGLE GROQ                 HUGGINGFACE MISTRAL NVIDIA OPENAI OPENROUTER; do
   var="${KEYS[$provider]}"
   key="${!var:-}"
+  if [[ -z "$key" ]]; then
+    for alias in ${ALIASES[$provider]:-}; do
+      candidate="${!alias:-}"
+      if [[ -n "$candidate" ]]; then
+        var="$alias"
+        key="$candidate"
+        break
+      fi
+    done
+  fi
   body="$TMP/$provider.json"
   status="not_configured"
   elapsed=""
