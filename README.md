@@ -96,6 +96,29 @@ python3 tools/provider_api/smoke_test.py --all-configured --capability embedding
 
 Access labels are conservative candidate classifications, not a promise that a particular account is free or has quota. The default execution excludes `paid` and `paid-or-account-credit` candidates. The explicit `--include-paid` flag may incur charges. There are no retries. The adapter validates vector shape and numeric values without retaining raw embeddings.
 
+#### Semantic retrieval benchmark
+
+`tools/provider_api/embedding_benchmark.py` evaluates actual retrieval ranking rather than endpoint reachability. Its checked-in dataset contains 16 short passages and 8 natural-language queries with explicit gold-relevant passage IDs. The runner embeds passages with the provider's document task mode and queries with its query task mode, ranks passages using cosine similarity, and reports macro Recall@5, MRR@5, and binary nDCG@5.
+
+```bash
+# Plan only. Defaults to Cohere and Google, one preferred credential per provider.
+python3 tools/provider_api/embedding_benchmark.py
+
+# Execute the two batch requests per provider (one for passages, one for queries).
+python3 tools/provider_api/embedding_benchmark.py --run
+
+# Select providers explicitly.
+python3 tools/provider_api/embedding_benchmark.py --provider COHERE --provider GOOGLE --run
+
+# Include every configured account, or paid/account-credit providers, only deliberately.
+python3 tools/provider_api/embedding_benchmark.py --all-accounts --run
+python3 tools/provider_api/embedding_benchmark.py --provider JINA --include-paid --run
+```
+
+The benchmark requires `--run` before making network requests. By default it selects only Cohere and Google, which passed the initial embedding smoke test, and uses one preferred credential per provider (FlossWare first). Paid/account-credit candidates are excluded unless `--include-paid` is supplied. `--all-accounts` multiplies requests by configured accounts and should be used deliberately. Each provider/account run makes exactly two batch requests when successful. Vectors remain in memory for ranking and are never written to evidence; JSONL records dimensions, latency, usage, per-query top document IDs, and aggregate metrics. No automatic retries are performed.
+
+The dataset is a small engineering-focused diagnostic, not a statistically representative benchmark or a substitute for a production corpus. Gold relevance judgments are hand-curated. Compare provider rankings on this same dataset, then validate promising candidates against representative FlossWare documents and queries before selecting a production embedding model. Vector spaces remain model-specific: do not mix Cohere and Gemini vectors in one fixed-dimension index.
+
 Provider API references: [Voyage embeddings](https://docs.voyageai.com/docs/embeddings), [Jina embeddings](https://docs.jina.ai/), [Cohere Embed v2](https://docs.cohere.com/reference/embed), [Google embedContent](https://ai.google.dev/api/embeddings), [OpenAI embeddings](https://developers.openai.com/api/reference/resources/embeddings/methods/create), [Mistral embeddings](https://docs.mistral.ai/api/endpoint/embeddings).
 
 The non-paid candidate set includes Google Gemini 3.5 Flash-Lite, Mistral Small (free API mode), Cohere Command R7B (trial key), catalogue-marked OpenRouter `:free` models (including DeepSeek V4 Flash 0731), and the DeepInfra-hosted DeepSeek V4 Flash 0731 route through Hugging Face's monthly included credits. The explicit paid-comparison batch includes Cerebras, DeepSeek, Groq, and a DeepInfra representative (`deepseek-ai/DeepSeek-V4-Flash-0731`) using DeepInfra's OpenAI-compatible chat endpoint. Hugging Face Inference Providers is also tested through its routed chat-completions endpoint. NVIDIA NIM's previously tested `openai/gpt-oss-120b` endpoint is marked deprecated and is excluded from execution. Paid or promotional-credit comparison models require explicit opt-in:
