@@ -24,14 +24,24 @@
     "COHERE": {
       "adapter": "cohere-v2",
       "implemented_capabilities": [
-        "chat"
+        "chat",
+        "embeddings"
       ],
       "endpoint": "https://api.cohere.com/v2/chat",
       "authentication": "bearer",
       "operations": [
         "non-streaming-smoke"
       ],
-      "pricing_source": "model-case"
+      "pricing_source": "model-case",
+      "capability_adapters": {
+        "embeddings": "cohere-v2-embed"
+      },
+      "capability_endpoints": {
+        "embeddings": "https://api.cohere.com/v2/embed"
+      },
+      "known_capabilities": [
+        "embeddings"
+      ]
     },
     "DEEPINFRA": {
       "adapter": "openai-compatible",
@@ -60,14 +70,24 @@
     "GOOGLE": {
       "adapter": "google-generative-language",
       "implemented_capabilities": [
-        "chat"
+        "chat",
+        "embeddings"
       ],
       "endpoint": "https://generativelanguage.googleapis.com/v1beta/{model}:generateContent",
       "authentication": "x-goog-api-key",
       "operations": [
         "non-streaming-smoke"
       ],
-      "pricing_source": "model-case"
+      "pricing_source": "model-case",
+      "capability_adapters": {
+        "embeddings": "google-embed-content"
+      },
+      "capability_endpoints": {
+        "embeddings": "https://generativelanguage.googleapis.com/v1beta/{model}:embedContent"
+      },
+      "known_capabilities": [
+        "embeddings"
+      ]
     },
     "GROQ": {
       "adapter": "openai-compatible",
@@ -96,14 +116,24 @@
     "MISTRAL": {
       "adapter": "openai-compatible",
       "implemented_capabilities": [
-        "chat"
+        "chat",
+        "embeddings"
       ],
       "endpoint": "https://api.mistral.ai/v1/chat/completions",
       "authentication": "bearer",
       "operations": [
         "non-streaming-smoke"
       ],
-      "pricing_source": "model-case"
+      "pricing_source": "model-case",
+      "capability_adapters": {
+        "embeddings": "openai-embeddings"
+      },
+      "capability_endpoints": {
+        "embeddings": "https://api.mistral.ai/v1/embeddings"
+      },
+      "known_capabilities": [
+        "embeddings"
+      ]
     },
     "NVIDIA": {
       "adapter": "openai-compatible",
@@ -121,14 +151,24 @@
     "OPENAI": {
       "adapter": "openai-compatible",
       "implemented_capabilities": [
-        "chat"
+        "chat",
+        "embeddings"
       ],
       "endpoint": "https://api.openai.com/v1/chat/completions",
       "authentication": "bearer",
       "operations": [
         "non-streaming-smoke"
       ],
-      "pricing_source": "model-case"
+      "pricing_source": "model-case",
+      "capability_adapters": {
+        "embeddings": "openai-embeddings"
+      },
+      "capability_endpoints": {
+        "embeddings": "https://api.openai.com/v1/embeddings"
+      },
+      "known_capabilities": [
+        "embeddings"
+      ]
     },
     "OPENROUTER": {
       "adapter": "openai-compatible",
@@ -152,6 +192,49 @@
       "authentication": "x-api-key",
       "operations": [],
       "status": "adapter-not-implemented",
+      "pricing_source": "provider-model-catalogue"
+    },
+    "VOYAGEAI": {
+      "adapter": null,
+      "implemented_capabilities": [
+        "embeddings"
+      ],
+      "known_capabilities": [
+        "embeddings"
+      ],
+      "capability_adapters": {
+        "embeddings": "voyage-embeddings"
+      },
+      "endpoint": "https://api.voyageai.com/v1/embeddings",
+      "capability_endpoints": {
+        "embeddings": "https://api.voyageai.com/v1/embeddings"
+      },
+      "authentication": "bearer",
+      "operations": [
+        "single-text-embedding-smoke"
+      ],
+      "pricing_source": "provider-model-catalogue"
+    },
+    "JINA": {
+      "adapter": null,
+      "implemented_capabilities": [
+        "embeddings"
+      ],
+      "known_capabilities": [
+        "embeddings",
+        "reranking"
+      ],
+      "capability_adapters": {
+        "embeddings": "jina-embeddings"
+      },
+      "endpoint": "https://api.jina.ai/v1/embeddings",
+      "capability_endpoints": {
+        "embeddings": "https://api.jina.ai/v1/embeddings"
+      },
+      "authentication": "bearer",
+      "operations": [
+        "single-text-embedding-smoke"
+      ],
       "pricing_source": "provider-model-catalogue"
     }
   }
