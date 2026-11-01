@@ -21,12 +21,15 @@ class ChunkTextTests(unittest.TestCase):
             overlap=1,
         )
 
-        self.assertEqual([item["id"] for item in chunks], ["doc-1:0", "doc-1:1"])
-        self.assertEqual([item["content"] for item in chunks], [
-            "one two three",
-            "three four five",
-        ])
-        self.assertEqual([item["token_count"] for item in chunks], [3, 3])
+        self.assertEqual(
+            [item["id"] for item in chunks],
+            ["doc-1:0", "doc-1:1", "doc-1:2"],
+        )
+        self.assertEqual(
+            [item["content"] for item in chunks],
+            ["one two three", "three four five", "five six"],
+        )
+        self.assertEqual([item["token_count"] for item in chunks], [3, 3, 2])
         for item in chunks:
             self.assertEqual(
                 source[item["start_offset"]:item["end_offset"]],
@@ -59,10 +62,10 @@ class ExportVaultTests(unittest.TestCase):
             result = export_vault(vault, max_tokens=3, overlap=1)
 
         self.assertEqual(result["chunking_strategy"], CHUNKING_STRATEGY)
-        self.assertEqual(len(result["documents"]), 2)
+        self.assertEqual(len(result["documents"]), 3)
         self.assertEqual(
             [item["text"] for item in result["documents"]],
-            ["# Topic\n\nalpha beta", "beta gamma delta"],
+            ["# Topic\n\nalpha", "alpha beta gamma", "gamma delta"],
         )
         self.assertTrue(all(
             item["metadata"]["relative_path"] == "topic.md"
