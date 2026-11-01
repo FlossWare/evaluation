@@ -500,8 +500,8 @@ def main() -> int:
     parser.add_argument("--show-credential-sources", action="store_true",
                         help="Show which credential variable name is selected for each provider, without printing values or making API calls.")
     parser.add_argument("--timeout", type=float, default=45.0)
-    parser.add_argument("--max-output-tokens", type=int, default=128,
-                        help="Maximum generated tokens per request (default: 128).")
+    parser.add_argument("--max-output-tokens", type=int, default=512,
+                        help="Maximum generated tokens per request (default: 512).")
     parser.add_argument("--output", type=Path, default=Path("provider-smoke-results.jsonl"))
     args = parser.parse_args()
 
