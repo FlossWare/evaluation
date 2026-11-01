@@ -3,7 +3,7 @@ import unittest
 
 from unittest.mock import patch
 
-from tools.provider_api.smoke_test import CASES, DEPRECATED_ACCESS, ENV_VARS, EXPECTED, OPENAI_COMPATIBLE, build_headers, classify_response, plan_all_configured, representative_cases, resolve_credential
+from tools.provider_api.smoke_test import CASES, DEPRECATED_ACCESS, ENV_VARS, EXPECTED, OPENAI_COMPATIBLE, build_headers, classify_response, discovered_provider_names, plan_all_configured, provider_from_env_name, representative_cases, resolve_credential
 
 
 
@@ -20,6 +20,8 @@ class CredentialResolutionTests(unittest.TestCase):
             "MISTRAL": "MISTRAL_API_KEY",
             "COHERE": "COHERE_API_KEY",
             "NVIDIA": "NVIDIA_API_KEY",
+            "OPENAI": "OPENAI_API_KEY",
+            "ANTHROPIC": "ANTHROPIC_API_KEY",
         }
         for provider, env_name in cases.items():
             with self.subTest(provider=provider):
@@ -71,6 +73,8 @@ class AllConfiguredPlanningTests(unittest.TestCase):
             "OPENROUTER_API_KEY": "OPENROUTER_API_KEY",
             "MISTRAL_API_KEY": "MISTRAL_API_KEY",
             "COHERE_API_KEY": "COHERE_API_KEY",
+            "OPENAI_API_KEY": "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY": "ANTHROPIC_API_KEY",
         }
         with patch.dict("os.environ", {name: "test-secret" for name in aliases}, clear=True):
             plan = plan_all_configured()
@@ -92,6 +96,26 @@ class AllConfiguredPlanningTests(unittest.TestCase):
         self.assertEqual(len(plan), len(ENV_VARS))
         self.assertTrue(all(item["status"] == "skipped-no-credential" for item in plan))
         self.assertTrue(all(item["credential_env"] is None for item in plan))
+
+
+    def test_unlisted_provider_credentials_are_discovered_without_secret_values(self):
+        with patch.dict("os.environ", {
+            "TOGETHER_API_KEY": "together-secret",
+            "FIREWORKS_API_KEY": "fireworks-secret",
+        }, clear=True):
+            self.assertEqual(provider_from_env_name("TOGETHER_API_KEY"), "TOGETHER")
+            self.assertEqual(
+                resolve_credential("TOGETHER"),
+                ("together-secret", "TOGETHER_API_KEY"),
+            )
+            self.assertIn("FIREWORKS", discovered_provider_names())
+            plan = {item["provider"]: item for item in plan_all_configured()}
+            self.assertEqual(plan["TOGETHER"]["status"], "skipped-no-provider-adapter")
+            self.assertEqual(plan["FIREWORKS"]["status"], "skipped-no-provider-adapter")
+
+    def test_non_provider_tokens_are_not_misclassified_as_api_credentials(self):
+        self.assertIsNone(provider_from_env_name("GITHUB_TOKEN"))
+        self.assertIsNone(provider_from_env_name("AWS_SESSION_TOKEN"))
 
     def test_paid_opt_in_only_changes_the_execution_plan(self):
         with patch.dict("os.environ", {
