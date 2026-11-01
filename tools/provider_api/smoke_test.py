@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Minimal, non-streaming provider inference smoke tests.
 
-Uses only Python's standard library. Credentials are read from *_API_KEY_FLOSSWARE
-environment variables, never accepted as command-line arguments, and never emitted.
-No automatic retries are performed.
+Uses only Python's standard library. Credentials prefer *_API_KEY_FLOSSWARE and
+fall back to conventional provider/SDK environment names. They are never accepted
+as command-line arguments or emitted. No automatic retries are performed.
 """
 from __future__ import annotations
 
