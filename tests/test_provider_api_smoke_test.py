@@ -72,8 +72,16 @@ class BatchSelectionTests(unittest.TestCase):
         self.assertEqual(len(selected), len({case["provider"] for case in selected.values()}))
         self.assertEqual(selected["GOOGLE"]["model"], "models/gemini-3.5-flash-lite")
         self.assertEqual(selected["OPENROUTER"]["model"], "nvidia/nemotron-3.5-lightning:free")
+        self.assertIn(
+            {"provider": "OPENROUTER", "model": "deepseek/deepseek-v4-flash-0731:free", "access": "catalogue-zero-price"},
+            CASES,
+        )
         self.assertEqual(selected["MISTRAL"]["model"], "mistral-small-latest")
         self.assertEqual(selected["COHERE"]["model"], "command-r7b-12-2024")
+        self.assertEqual(
+            selected["HUGGINGFACE"]["model"],
+            "deepseek-ai/DeepSeek-V4-Flash-0731:deepinfra",
+        )
         self.assertNotIn("CEREBRAS", selected)
         self.assertNotIn("NVIDIA", selected)
 
