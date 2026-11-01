@@ -1,7 +1,7 @@
 """Deterministic tests for provider smoke-test response classification."""
 import unittest
 
-from tools.provider_api.smoke_test import EXPECTED, build_headers, classify_response
+from tools.provider_api.smoke_test import EXPECTED, OPENAI_COMPATIBLE, build_headers, classify_response
 
 
 class RequestHeaderTests(unittest.TestCase):
@@ -15,6 +15,12 @@ class RequestHeaderTests(unittest.TestCase):
         headers = build_headers("GOOGLE", "test-key")
         self.assertEqual(headers["x-goog-api-key"], "test-key")
         self.assertNotIn("Authorization", headers)
+
+    def test_deepinfra_uses_openai_compatible_chat_endpoint(self):
+        self.assertEqual(
+            OPENAI_COMPATIBLE["DEEPINFRA"],
+            "https://api.deepinfra.com/v1/openai/chat/completions",
+        )
 
 
 class ClassifyResponseTests(unittest.TestCase):
