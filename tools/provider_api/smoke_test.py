@@ -138,13 +138,13 @@ def inventory_rows() -> list[dict[str, Any]]:
                 "account": account["account"],
                 "credential_env": account["credential_env"],
                 "credential_configured": bool(account["credential_env"]),
-                "adapter": entry.get("adapter"),
+                "adapter": entry.get("adapter") or entry.get("capability_adapters", {}).get("embeddings"),
                 "implemented_capabilities": entry.get("implemented_capabilities", []),
                 "known_capabilities": entry.get("known_capabilities", []),
                 "endpoint": entry.get("endpoint"),
                 "authentication": entry.get("authentication"),
                 "status": (
-                    "adapter-available" if account["credential_env"] and entry.get("adapter")
+                    "adapter-available" if account["credential_env"] and (entry.get("adapter") or entry.get("capability_adapters"))
                     else "skipped-no-credential" if not account["credential_env"]
                     else entry.get("status", "skipped-no-provider-adapter")
                 ),
@@ -171,7 +171,7 @@ def capability_plan(capability: str, providers: list[str] | None = None) -> list
                 "credential_env": account["credential_env"],
                 "credential_configured": configured,
                 "capability": capability,
-                "adapter": entry.get("adapter"),
+                "adapter": entry.get("capability_adapters", {}).get(capability) or entry.get("adapter"),
                 "status": (
                     "skipped-no-credential" if not configured
                     else "ready" if supported
