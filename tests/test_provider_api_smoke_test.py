@@ -22,6 +22,12 @@ class RequestHeaderTests(unittest.TestCase):
             "https://api.deepinfra.com/v1/openai/chat/completions",
         )
 
+    def test_nvidia_uses_nim_chat_completions_endpoint(self):
+        self.assertEqual(
+            OPENAI_COMPATIBLE["NVIDIA"],
+            "https://integrate.api.nvidia.com/v1/chat/completions",
+        )
+
 
 class ClassifyResponseTests(unittest.TestCase):
     def test_exact_response_with_stop_passes(self):
