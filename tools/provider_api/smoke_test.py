@@ -267,6 +267,15 @@ def representative_cases(include_paid: bool) -> dict[str, dict[str, str]]:
     return selected
 
 
+def openrouter_free_cases() -> list[dict[str, str]]:
+    """Return explicit, catalogue-zero-price OpenRouter models (not the dynamic router alias)."""
+    return [
+        case for case in CASES
+        if case["provider"] == "OPENROUTER"
+        and case["access"] == "catalogue-zero-price"
+    ]
+
+
 def plan_all_configured(include_paid: bool = False) -> list[dict[str, Any]]:
     """Build a provider/account plan without making network requests."""
     selected = representative_cases(include_paid)
@@ -496,6 +505,8 @@ def main() -> int:
                         help="Run only this provider; repeat to select several.")
     parser.add_argument("--all-configured", action="store_true",
                         help="Iterate every known provider; run one free/trial candidate where available and report all others as skipped.")
+    parser.add_argument("--openrouter-free-matrix", action="store_true",
+                        help="Run every explicit catalogue-zero-price OpenRouter model once for each configured OpenRouter credential account; excludes the dynamic router alias and all paid candidates.")
     parser.add_argument("--model",
                         help="Run only this exact configured model ID; combine with --provider to validate its provider.")
     parser.add_argument("--include-paid", action="store_true",
@@ -558,6 +569,12 @@ def main() -> int:
         print("Read-only: no provider requests were made.")
         return 0
 
+    if args.openrouter_free_matrix and (
+        args.all_configured or args.provider or args.model or args.include_paid
+        or args.show_latest_errors or args.show_credential_sources
+    ):
+        parser.error("--openrouter-free-matrix cannot be combined with other selection options")
+
     if args.all_configured and (args.provider or args.model):
         parser.error("--all-configured cannot be combined with --provider or --model")
 
@@ -571,7 +588,25 @@ def main() -> int:
             configured = ", ".join(sorted({case["provider"] for case in matching_models}))
             parser.error(f"Model {args.model!r} is configured for {configured}, not the selected provider(s).")
 
-    if args.all_configured:
+    if args.openrouter_free_matrix:
+        accounts = credential_accounts("OPENROUTER")
+        cases = openrouter_free_cases()
+        if not accounts:
+            parser.error("No configured OpenRouter credential accounts found.")
+        if not cases:
+            parser.error("No explicit catalogue-zero-price OpenRouter models are configured.")
+        results = [
+            request_case(
+                case,
+                args.timeout,
+                args.max_output_tokens,
+                credential_env=account["credential_env"],
+                account=account["account"],
+            )
+            for account in accounts
+            for case in cases
+        ]
+    elif args.all_configured:
         # Plan every provider first. Only free/trial/zero-price candidates run
         # by default; paid-only and deprecated providers are explicitly recorded.
         # At most one candidate per provider is ever invoked in this batch.
