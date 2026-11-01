@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -42,6 +43,7 @@ CASES: list[dict[str, str]] = [
     {"provider": "CEREBRAS", "model": "qwen-3.8-27b", "access": "promotional-or-paid"},
     {"provider": "DEEPSEEK", "model": "deepseek-flash", "access": "paid-unless-account-credit"},
     {"provider": "GROQ", "model": "openai/gpt-oss-120b", "access": "paid"},
+    {"provider": "OPENAI", "model": "gpt-4.1-mini", "access": "paid"},
 ]
 
 OPENAI_COMPATIBLE = {
@@ -53,6 +55,7 @@ OPENAI_COMPATIBLE = {
     "MISTRAL": "https://api.mistral.ai/v1/chat/completions",
     "GROQ": "https://api.groq.com/openai/v1/chat/completions",
     "OPENROUTER": "https://openrouter.ai/api/v1/chat/completions",
+    "OPENAI": "https://api.openai.com/v1/chat/completions",
 }
 ENV_VARS = {
     "CEREBRAS": "CEREBRAS_API_KEY_FLOSSWARE",
@@ -65,6 +68,8 @@ ENV_VARS = {
     "OPENROUTER": "OPENROUTER_API_KEY_FLOSSWARE",
     "MISTRAL": "MISTRAL_API_KEY_FLOSSWARE",
     "COHERE": "COHERE_API_KEY_FLOSSWARE",
+    "OPENAI": "OPENAI_API_KEY_FLOSSWARE",
+    "ANTHROPIC": "ANTHROPIC_API_KEY_FLOSSWARE",
 }
 
 # Accept standard provider names and common SDK conventions.
@@ -80,13 +85,52 @@ ENV_VAR_ALIASES = {
     "OPENROUTER": ("OPENROUTER_API_KEY",),
     "MISTRAL": ("MISTRAL_API_KEY",),
     "COHERE": ("COHERE_API_KEY",),
+    "OPENAI": ("OPENAI_API_KEY",),
+    "ANTHROPIC": ("ANTHROPIC_API_KEY",),
 }
+
+
+def provider_from_env_name(env_name: str) -> str | None:
+    """Map a provider credential variable name to its canonical provider."""
+    explicit = {
+        "GEMINI_API_KEY": "GOOGLE",
+        "GEMINI_API_KEY_FLOSSWARE": "GOOGLE",
+        "HF_TOKEN": "HUGGINGFACE",
+        "HUGGING_FACE_HUB_TOKEN": "HUGGINGFACE",
+    }
+    if env_name in explicit:
+        return explicit[env_name]
+    match = re.fullmatch(r"([A-Z][A-Z0-9_]*)_(?:API_KEY(?:_FLOSSWARE)?|API_TOKEN)", env_name)
+    if not match:
+        return None
+    provider = match.group(1)
+    return {"HF": "HUGGINGFACE", "HUGGING_FACE": "HUGGINGFACE", "GEMINI": "GOOGLE"}.get(provider, provider)
+
+
+def discovered_provider_names() -> list[str]:
+    """Return known providers plus providers inferred from non-empty credential variables."""
+    discovered = {
+        provider
+        for name, value in os.environ.items()
+        if value.strip() and (provider := provider_from_env_name(name))
+    }
+    return sorted(set(ENV_VARS) | discovered)
+
+
+def credential_variable_names(provider: str) -> tuple[str, ...]:
+    """Return ordered credential variable names for a provider, without reading values."""
+    primary = ENV_VARS.get(provider, f"{provider}_API_KEY_FLOSSWARE")
+    names = [primary, *ENV_VAR_ALIASES.get(provider, ())]
+    names.extend(
+        name for name in os.environ
+        if provider_from_env_name(name) == provider
+    )
+    return tuple(dict.fromkeys(names))
 
 
 def resolve_credential(provider: str) -> tuple[str, str | None]:
     """Return credential and source variable name without exposing its value."""
-    candidates = (ENV_VARS[provider], *ENV_VAR_ALIASES.get(provider, ()))
-    for env_name in candidates:
+    for env_name in credential_variable_names(provider):
         value = os.environ.get(env_name, "")
         if value.strip():
             return value.strip(), env_name
@@ -194,7 +238,7 @@ def plan_all_configured(include_paid: bool = False) -> list[dict[str, Any]]:
     """Build a complete provider plan without making network requests."""
     selected = representative_cases(include_paid)
     plan: list[dict[str, Any]] = []
-    for provider in sorted(ENV_VARS):
+    for provider in discovered_provider_names():
         _, env_name = resolve_credential(provider)
         candidates = [case for case in CASES if case["provider"] == provider]
         case = selected.get(provider)
@@ -213,6 +257,8 @@ def plan_all_configured(include_paid: bool = False) -> list[dict[str, Any]]:
             item["status"] = "skipped-deprecated-endpoint"
             item["model_requested"] = candidates[0]["model"]
             item["access_classification"] = candidates[0]["access"]
+        elif provider not in {"GOOGLE", "COHERE", *OPENAI_COMPATIBLE}:
+            item["status"] = "skipped-no-provider-adapter"
         elif candidates and not include_paid and all(c["access"] in PAID_ACCESS or c["access"] in DEPRECATED_ACCESS for c in candidates):
             item["status"] = "skipped-paid-opt-in-required"
             eligible = next((c for c in candidates if c["access"] in PAID_ACCESS), candidates[0])
@@ -390,7 +436,7 @@ def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--provider", action="append", choices=sorted(ENV_VARS),
+    parser.add_argument("--provider", action="append", choices=discovered_provider_names(),
                         help="Run only this provider; repeat to select several.")
     parser.add_argument("--all-configured", action="store_true",
                         help="Iterate every known provider; run one free/trial candidate where available and report all others as skipped.")
@@ -414,7 +460,7 @@ def main() -> int:
     if args.show_credential_sources:
         if args.show_latest_errors or args.all_configured or args.provider or args.model or args.include_paid:
             parser.error("--show-credential-sources cannot be combined with other selection options")
-        for provider in sorted(ENV_VARS):
+        for provider in discovered_provider_names():
             _, env_name = resolve_credential(provider)
             print(f"{provider:10} {env_name or 'not configured'}")
         print("Read-only: no credential values were displayed and no provider requests were made.")
