@@ -58,6 +58,20 @@ The default smoke batch is limited to catalogue-marked OpenRouter `:free` models
 python3 tools/provider_api/smoke_test.py --include-paid
 ```
 
+Run one representative candidate for every provider in a single batch:
+
+```bash
+python3 tools/provider_api/smoke_test.py --all-configured
+```
+
+This checks one non-paid candidate per provider where available. Providers without credentials are recorded as skipped; providers whose only configured candidate is paid or promotional-credit based are also skipped unless `--include-paid` is supplied. To explicitly include those candidates:
+
+```bash
+python3 tools/provider_api/smoke_test.py --all-configured --include-paid
+```
+
+The batch never fans out across every model in a provider catalogue. It selects at most one representative model per provider, continues after individual failures, and appends all outcomes to the same JSONL evidence file. `--all-configured` cannot be combined with `--provider` or `--model`.
+
 Select providers with repeatable `--provider` arguments. The script makes one non-streaming request per selected model, defaults to a 128-token output limit (configurable with `--max-output-tokens`), and performs no automatic retries. It captures the requested output-token budget, total latency, HTTP status, request IDs, rate-limit headers, provider-native usage, normalized reasoning-token usage, finish reason, visible output length, and whether the exact synthetic response was returned. Any response ending with `length` (OpenAI-compatible APIs) or `MAX_TOKENS` (Google) is classified as incomplete, even when partial or apparently matching text is present. It is classified as `incomplete-reasoning` when reasoning tokens were consumed, or `incomplete-output` otherwise; partial output is never mislabeled as a complete semantic mismatch. Other non-empty incorrect responses are `response-mismatch`, while empty responses without a length stop are `empty-response`. JSONL evidence is appended across invocations so successive experiments are retained. Router-selected model IDs are recorded separately from the requested router alias. It does not measure time-to-first-token; streaming belongs in the later capability suite.
 
 Run the deterministic classification tests with `python3 -m unittest discover -s tests -v`.
