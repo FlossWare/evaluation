@@ -74,17 +74,18 @@ Capability families are declared in the provider catalogue: `chat`, `embeddings`
 
 #### Embedding adapter evaluation
 
-The initial embedding adapters use native provider request/response contracts for Voyage AI, Jina, Cohere, Google Gemini, OpenAI, and Mistral. The bounded smoke request embeds one synthetic FlossWare sentence and validates that the response contains a finite, non-zero vector. Evidence stores model, dimensions, norm, latency, usage, status, and request ID; it deliberately does not persist vector contents.
+The initial embedding adapters use native provider request/response contracts for Voyage AI, Jina, Cohere, Google Gemini, OpenAI, and Mistral. Initial account testing found Jina credentials had insufficient balance on all four configured accounts, so Jina is conservatively classified as paid/account-credit and excluded from default execution. The bounded smoke request embeds one synthetic FlossWare sentence and validates that the response contains a finite, non-zero vector. Evidence stores model, dimensions, norm, latency, usage, status, and request ID; it deliberately does not persist vector contents.
 
 ```bash
 # Plan capability coverage only. No provider requests are made.
 python3 tools/provider_api/smoke_test.py --capability embeddings
 
-# Execute only candidates marked free-tier/trial, across configured accounts.
+# Execute candidates classified as free-tier/trial, across configured accounts. Jina is excluded after all four configured accounts reported no balance.
 python3 tools/provider_api/smoke_test.py --all-configured --capability embeddings
 
-# Execute one provider's free/trial candidate across its configured accounts.
-python3 tools/provider_api/smoke_test.py --capability embeddings --provider JINA
+# Jina is classified as paid/account-credit after the initial four-account test.
+# It requires explicit opt-in if you later add credits and want to retest.
+python3 tools/provider_api/smoke_test.py --capability embeddings --provider JINA --include-paid
 
 # Explicitly opt into paid/account-credit candidates for one provider.
 python3 tools/provider_api/smoke_test.py --capability embeddings --provider VOYAGEAI --include-paid
