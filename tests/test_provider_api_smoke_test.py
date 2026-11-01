@@ -260,6 +260,50 @@ class BatchSelectionTests(unittest.TestCase):
         self.assertNotIn("NVIDIA", selected)
 
 
+class DirectRequestAccountTests(unittest.TestCase):
+    def test_direct_request_records_the_selected_credential_account(self):
+        import json
+        from tools.provider_api.smoke_test import request_case
+
+        class FakeResponse:
+            status = 200
+            headers = {}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return json.dumps({
+                    "id": "test-request",
+                    "model": "nvidia/nemotron-3.5-lightning:free",
+                    "choices": [{
+                        "message": {"content": EXPECTED},
+                        "finish_reason": "stop",
+                    }],
+                    "usage": {},
+                }).encode("utf-8")
+
+        case = {
+            "provider": "OPENROUTER",
+            "model": "nvidia/nemotron-3.5-lightning:free",
+            "access": "catalogue-zero-price",
+        }
+        with patch.dict("os.environ", {
+            "OPENROUTER_API_KEY_FLOSSWARE": "test-secret",
+        }, clear=True), patch(
+            "tools.provider_api.smoke_test.urllib.request.urlopen",
+            return_value=FakeResponse(),
+        ):
+            result = request_case(case, timeout=1, max_tokens=512)
+
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(result["credential_env"], "OPENROUTER_API_KEY_FLOSSWARE")
+        self.assertEqual(result["account"], "FLOSSWARE")
+
+
 class DefaultOutputBudgetTests(unittest.TestCase):
     def test_default_output_budget_is_512_tokens(self):
         import inspect
