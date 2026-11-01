@@ -32,6 +32,7 @@ CASES: list[dict[str, str]] = [
     {"provider": "OPENROUTER", "model": "thinkingmachines/inkling:free", "access": "catalogue-zero-price"},
     {"provider": "OPENROUTER", "model": "thinkingmachines/inkling-small:free", "access": "catalogue-zero-price"},
     {"provider": "OPENROUTER", "model": "openrouter/free", "access": "catalogue-zero-price-router"},
+    {"provider": "DEEPINFRA", "model": "deepseek-ai/DeepSeek-V4-Flash-0731", "access": "paid"},
     {"provider": "CEREBRAS", "model": "gpt-oss-120b", "access": "promotional-or-paid"},
     {"provider": "CEREBRAS", "model": "qwen-3.8-27b", "access": "promotional-or-paid"},
     {"provider": "DEEPSEEK", "model": "deepseek-flash", "access": "paid-unless-account-credit"},
@@ -40,12 +41,14 @@ CASES: list[dict[str, str]] = [
 
 OPENAI_COMPATIBLE = {
     "CEREBRAS": "https://api.cerebras.ai/v1/chat/completions",
+    "DEEPINFRA": "https://api.deepinfra.com/v1/openai/chat/completions",
     "DEEPSEEK": "https://api.deepseek.com/chat/completions",
     "GROQ": "https://api.groq.com/openai/v1/chat/completions",
     "OPENROUTER": "https://openrouter.ai/api/v1/chat/completions",
 }
 ENV_VARS = {
     "CEREBRAS": "CEREBRAS_API_KEY_FLOSSWARE",
+    "DEEPINFRA": "DEEPINFRA_API_KEY_FLOSSWARE",
     "DEEPSEEK": "DEEPSEEK_API_KEY_FLOSSWARE",
     "GOOGLE": "GOOGLE_API_KEY_FLOSSWARE",
     "GROQ": "GROQ_API_KEY_FLOSSWARE",
