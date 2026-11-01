@@ -60,6 +60,23 @@ def safe_text(value: Any, secret: str) -> str:
     return text[:2000]
 
 
+def classify_response(text: str, finish_reason: str | None, reasoning_tokens: int) -> tuple[str, str, bool]:
+    """Return (completeness, status, semantic_match) for one model response."""
+    semantic_match = text.strip() == EXPECTED
+    hit_output_limit = str(finish_reason or "").upper() in {"LENGTH", "MAX_TOKENS"}
+
+    # A length stop takes precedence over text matching: partial output must
+    # never be reported as complete, even when it contains some visible text.
+    if hit_output_limit:
+        status = "incomplete-reasoning" if reasoning_tokens else "incomplete-output"
+        return "incomplete", status, semantic_match
+    if semantic_match:
+        return "complete", "passed", True
+    if not text.strip():
+        return "empty", "empty-response", False
+    return "complete", "response-mismatch", False
+
+
 def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[str, Any]:
     provider, model = case["provider"], case["model"]
     env_name = ENV_VARS[provider]
@@ -154,37 +171,15 @@ def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[
             result["provider_request_id"] = result["provider_request_id"] or data.get("id")
 
         result["response_text"] = safe_text(text, key)
-        result["semantic_match"] = text.strip() == EXPECTED
-
-        # Preserve provider-native usage while exposing a normalized reasoning count.
-        usage = result["usage"] or {}
-        if provider == "GOOGLE":
-            reasoning_tokens = usage.get("thoughtsTokenCount", 0)
-        else:
-            completion_details = usage.get("completion_tokens_details") or {}
-            reasoning_tokens = completion_details.get("reasoning_tokens", usage.get("reasoning_tokens", 0))
-        result["reasoning_tokens"] = reasoning_tokens or 0
-        result["visible_output_chars"] = len(text.strip())
-
-        finish_reason = str(result["finish_reason"] or "").upper()
-        hit_output_limit = finish_reason in {"LENGTH", "MAX_TOKENS"}
-
-        # A length stop takes precedence over text matching: partial output must
-        # never be reported as complete, even when it contains some visible text.
-        if hit_output_limit:
-            result["response_completeness"] = "incomplete"
-            result["status"] = (
-                "incomplete-reasoning" if result["reasoning_tokens"] else "incomplete-output"
-            )
-        elif result["semantic_match"]:
-            result["response_completeness"] = "complete"
-            result["status"] = "passed"
-        elif not text.strip():
-            result["response_completeness"] = "empty"
-            result["status"] = "empty-response"
-        else:
-            result["response_completeness"] = "complete"
-            result["status"] = "response-mismatch"
+        (
+            result["response_completeness"],
+            result["status"],
+            result["semantic_match"],
+        ) = classify_response(
+            text,
+            result["finish_reason"],
+            result["reasoning_tokens"],
+        )
     except urllib.error.HTTPError as exc:
         result["latency_seconds"] = round(time.monotonic() - started, 3)
         result["http_status"] = exc.code
