@@ -52,7 +52,7 @@ python3 tools/provider_api/smoke_test.py
 
 The catalogue command writes `provider-model-catalogue.json`. The smoke test writes `provider-smoke-results.jsonl`. Both are local evidence artifacts and should be reviewed before sharing.
 
-The default smoke batch is limited to catalogue-marked OpenRouter `:free` models and the Gemini models observed in the initial catalogue. The explicit paid-comparison batch includes Cerebras, DeepSeek, Groq, and a DeepInfra representative (`deepseek-ai/DeepSeek-V4-Flash-0731`) using DeepInfra's OpenAI-compatible chat endpoint. Paid or promotional-credit comparison models require explicit opt-in:
+The default smoke batch is limited to catalogue-marked OpenRouter `:free` models and the Gemini models observed in the initial catalogue. The explicit paid-comparison batch includes Cerebras, DeepSeek, Groq, and a DeepInfra representative (`deepseek-ai/DeepSeek-V4-Flash-0731`) using DeepInfra's OpenAI-compatible chat endpoint. It also includes NVIDIA NIM's `openai/gpt-oss-120b` candidate via NVIDIA's OpenAI-compatible `/v1/chat/completions` API. Paid or promotional-credit comparison models require explicit opt-in:
 
 ```bash
 python3 tools/provider_api/smoke_test.py --include-paid
