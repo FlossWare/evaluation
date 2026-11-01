@@ -177,8 +177,56 @@ def safe_text(value: Any, secret: str) -> str:
     return text[:2000]
 
 
+def sanitize_error_detail(detail: str | None, secret: str = "") -> str | None:
+    """Remove provider user identifiers and redact secrets before evidence is persisted."""
+    if detail is None:
+        return None
+    try:
+        parsed = json.loads(detail)
+    except (json.JSONDecodeError, TypeError):
+        return safe_text(detail, secret)
+
+    def scrub(value: Any) -> Any:
+        if isinstance(value, dict):
+            cleaned = {}
+            for key, nested in value.items():
+                normalized_key = re.sub(r"[^a-z]", "", str(key).lower())
+                if normalized_key in {"userid", "useridentifier"}:
+                    continue
+                cleaned[key] = scrub(nested)
+            return cleaned
+        if isinstance(value, list):
+            return [scrub(item) for item in value]
+        if isinstance(value, str) and secret:
+            return value.replace(secret, "[REDACTED]")
+        return value
+
+    sanitized = json.dumps(scrub(parsed), ensure_ascii=False, separators=(",", ":"))
+    return safe_text(sanitized, secret)
+
+
 def classify_http_error(status: int | None, detail: str | None) -> str | None:
-    """Classify provider HTTP errors without confusing billing with inference failure."""
+    """Classify billing and rate-limit responses using provider metadata where available."""
+    try:
+        parsed = json.loads(detail or "")
+    except (json.JSONDecodeError, TypeError):
+        parsed = {}
+
+    error = parsed.get("error", {}) if isinstance(parsed, dict) else {}
+    metadata = error.get("metadata", {}) if isinstance(error, dict) else {}
+
+    if status == 429:
+        limit_source = str(metadata.get("limit_source") or "").lower()
+        if limit_source == "upstream_provider_shared_pool":
+            return "upstream-shared-pool-rate-limit"
+        if metadata.get("is_byok") is True:
+            return "byok-provider-rate-limit"
+        if "upstream" in limit_source:
+            return "upstream-provider-rate-limit"
+        if limit_source:
+            return "provider-rate-limit"
+        return "rate-limit-unclassified"
+
     if status != 402:
         return None
     message = (detail or "").lower()
@@ -203,7 +251,13 @@ def error_summary(detail: str | None) -> str | None:
     if isinstance(parsed, dict):
         error = parsed.get("error")
         if isinstance(error, dict):
-            message = str(error.get("message") or error.get("detail") or error)
+            metadata = error.get("metadata") or {}
+            message = str(
+                metadata.get("raw")
+                or error.get("message")
+                or error.get("detail")
+                or error
+            )
         elif isinstance(error, str):
             message = error
         else:
@@ -482,7 +536,7 @@ def request_case(
             detail = exc.read().decode("utf-8", errors="replace")
         except Exception:
             detail = str(exc)
-        result["error"] = safe_text(detail, key)
+        result["error"] = sanitize_error_detail(detail, key)
         result["http_error_category"] = classify_http_error(exc.code, result["error"])
         result["status"] = "http-error"
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
@@ -512,7 +566,7 @@ def main() -> int:
     parser.add_argument("--include-paid", action="store_true",
                         help="Also run paid/promotional-credit comparison candidates.")
     parser.add_argument("--show-latest-errors", action="store_true",
-                        help="Print the latest recorded errors for Cerebras, DeepInfra, DeepSeek, and Hugging Face without making API calls.")
+                        help="Print the latest recorded errors for Cerebras, DeepInfra, DeepSeek, Hugging Face, and OpenRouter without making API calls.")
     parser.add_argument("--show-credential-sources", action="store_true",
                         help="Show which credential variable name is selected for each provider, without printing values or making API calls.")
     parser.add_argument("--timeout", type=float, default=45.0)
@@ -541,7 +595,7 @@ def main() -> int:
             parser.error("--show-latest-errors cannot be combined with inference-selection options")
         if not args.output.exists():
             parser.error(f"No evidence file found: {args.output}")
-        wanted = {"CEREBRAS", "DEEPINFRA", "DEEPSEEK", "HUGGINGFACE"}
+        wanted = {"CEREBRAS", "DEEPINFRA", "DEEPSEEK", "HUGGINGFACE", "OPENROUTER"}
         latest: dict[str, dict[str, Any]] = {}
         with args.output.open(encoding="utf-8") as stream:
             for line in stream:
@@ -550,7 +604,9 @@ def main() -> int:
                 except json.JSONDecodeError:
                     continue
                 provider = item.get("provider")
-                if provider in wanted and (item.get("error") or item.get("http_status") == 402):
+                if provider in wanted and (
+                    item.get("error") or item.get("http_status") in {402, 429}
+                ):
                     latest[provider] = item
         for provider in sorted(wanted):
             item = latest.get(provider)
