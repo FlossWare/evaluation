@@ -1,8 +1,61 @@
 """Deterministic tests for provider smoke-test response classification."""
 import unittest
 
-from tools.provider_api.smoke_test import CASES, DEPRECATED_ACCESS, EXPECTED, OPENAI_COMPATIBLE, build_headers, classify_response, representative_cases
+from unittest.mock import patch
 
+from tools.provider_api.smoke_test import CASES, DEPRECATED_ACCESS, EXPECTED, OPENAI_COMPATIBLE, build_headers, classify_response, representative_cases, resolve_credential
+
+
+
+class CredentialResolutionTests(unittest.TestCase):
+    def test_standard_provider_environment_names_are_supported(self):
+        cases = {
+            "CEREBRAS": "CEREBRAS_API_KEY",
+            "DEEPINFRA": "DEEPINFRA_API_KEY",
+            "DEEPSEEK": "DEEPSEEK_API_KEY",
+            "HUGGINGFACE": "HF_TOKEN",
+            "GOOGLE": "GEMINI_API_KEY",
+            "GROQ": "GROQ_API_KEY",
+            "OPENROUTER": "OPENROUTER_API_KEY",
+            "MISTRAL": "MISTRAL_API_KEY",
+            "COHERE": "COHERE_API_KEY",
+            "NVIDIA": "NVIDIA_API_KEY",
+        }
+        for provider, env_name in cases.items():
+            with self.subTest(provider=provider):
+                with patch.dict("os.environ", {env_name: "test-secret"}, clear=True):
+                    self.assertEqual(resolve_credential(provider), ("test-secret", env_name))
+
+    def test_flossware_variable_has_precedence(self):
+        with patch.dict("os.environ", {
+            "CEREBRAS_API_KEY_FLOSSWARE": "preferred-secret",
+            "CEREBRAS_API_KEY": "fallback-secret",
+        }, clear=True):
+            self.assertEqual(
+                resolve_credential("CEREBRAS"),
+                ("preferred-secret", "CEREBRAS_API_KEY_FLOSSWARE"),
+            )
+
+    def test_huggingface_sdk_alias_is_supported(self):
+        with patch.dict("os.environ", {"HUGGING_FACE_HUB_TOKEN": "hf-secret"}, clear=True):
+            self.assertEqual(
+                resolve_credential("HUGGINGFACE"),
+                ("hf-secret", "HUGGING_FACE_HUB_TOKEN"),
+            )
+
+    def test_blank_variables_are_ignored(self):
+        with patch.dict("os.environ", {
+            "DEEPSEEK_API_KEY_FLOSSWARE": "  ",
+            "DEEPSEEK_API_KEY": "deepseek-secret",
+        }, clear=True):
+            self.assertEqual(
+                resolve_credential("DEEPSEEK"),
+                ("deepseek-secret", "DEEPSEEK_API_KEY"),
+            )
+
+    def test_missing_credentials_return_no_value_or_source(self):
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertEqual(resolve_credential("GROQ"), ("", None))
 
 class RequestHeaderTests(unittest.TestCase):
     def test_provider_requests_identify_the_application(self):
