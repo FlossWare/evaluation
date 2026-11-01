@@ -154,7 +154,31 @@ def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[
 
         result["response_text"] = safe_text(text, key)
         result["semantic_match"] = text.strip() == EXPECTED
-        result["status"] = "passed" if result["semantic_match"] else "response-mismatch"
+
+        # Preserve provider-native usage while exposing a normalized reasoning count.
+        usage = result["usage"] or {}
+        if provider == "GOOGLE":
+            reasoning_tokens = usage.get("thoughtsTokenCount", 0)
+        else:
+            completion_details = usage.get("completion_tokens_details") or {}
+            reasoning_tokens = completion_details.get("reasoning_tokens", usage.get("reasoning_tokens", 0))
+        result["reasoning_tokens"] = reasoning_tokens or 0
+        result["visible_output_chars"] = len(text.strip())
+
+        if result["semantic_match"]:
+            result["response_completeness"] = "complete"
+            result["status"] = "passed"
+        elif not text.strip() and result["finish_reason"] in {"length", "MAX_TOKENS"}:
+            result["response_completeness"] = "incomplete"
+            result["status"] = (
+                "incomplete-reasoning" if result["reasoning_tokens"] else "incomplete-output"
+            )
+        elif not text.strip():
+            result["response_completeness"] = "empty"
+            result["status"] = "empty-response"
+        else:
+            result["response_completeness"] = "complete"
+            result["status"] = "response-mismatch"
     except urllib.error.HTTPError as exc:
         result["latency_seconds"] = round(time.monotonic() - started, 3)
         result["http_status"] = exc.code
@@ -195,7 +219,8 @@ def main() -> int:
     parser.add_argument("--include-paid", action="store_true",
                         help="Also run paid/promotional-credit comparison candidates.")
     parser.add_argument("--timeout", type=float, default=45.0)
-    parser.add_argument("--max-output-tokens", type=int, default=32)
+    parser.add_argument("--max-output-tokens", type=int, default=128,
+                        help="Maximum generated tokens per request (default: 128).")
     parser.add_argument("--output", type=Path, default=Path("provider-smoke-results.jsonl"))
     args = parser.parse_args()
 
