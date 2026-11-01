@@ -39,7 +39,7 @@ These scripts are **research utilities, not part of the published `evaluation-ai
 - `catalogue_inventory.sh` reads authenticated provider model catalogues and writes a normalized local JSON report. It does not invoke models.
 - `smoke_test.py` sends a tiny synthetic prompt to selected catalogue-listed models and records transport/response evidence as JSONL.
 
-The harness does not own provider selection, routing, credential storage, retries, or production invocation. Those responsibilities remain with `model-gateway`. The harness reads only FlossWare-scoped environment variables and never accepts or prints credential values.
+The harness does not own provider selection, routing, credential storage, retries, or production invocation. Those responsibilities remain with `model-gateway`. Both utilities prefer FlossWare-scoped environment variables and fall back to conventional provider/SDK names. They never accept credentials as command-line arguments or print/write credential values.
 
 ### Run
 
