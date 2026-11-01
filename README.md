@@ -159,10 +159,10 @@ Run planning and execution:
 python3 tools/provider_api/embedding_benchmark.py --dataset /path/to/kbase-corpus-export.json --queries /path/to/reviewed-queries.json
 
 # Execute after reviewing the dataset and provider data-sharing implications.
-python3 tools/provider_api/embedding_benchmark.py --dataset /path/to/flossware-benchmark.json --run
+python3 tools/provider_api/embedding_benchmark.py --dataset /path/to/kbase-corpus-export.json --queries /path/to/reviewed-queries.json --run
 
 # Larger datasets are sent in bounded batches (default 64 texts per request).
-python3 tools/provider_api/embedding_benchmark.py --dataset /path/to/flossware-benchmark.json --batch-size 32
+python3 tools/provider_api/embedding_benchmark.py --dataset /path/to/kbase-corpus-export.json --queries /path/to/reviewed-queries.json --batch-size 32
 ```
 
 The benchmark sends the actual document chunks and query text to each selected external embedding provider when `--run` is supplied. Do not include credentials, secrets, personal data, Red Hat confidential material, or content that is not approved for that provider. Only aggregate metrics, stable IDs, and request metadata are written to JSONL evidence; raw vectors and source text are not persisted by the runner. The dataset file itself remains under the caller's control.
