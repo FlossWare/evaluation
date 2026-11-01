@@ -3,7 +3,7 @@ import unittest
 
 from unittest.mock import patch
 
-from tools.provider_api.smoke_test import CASES, DEPRECATED_ACCESS, EXPECTED, OPENAI_COMPATIBLE, build_headers, classify_response, representative_cases, resolve_credential
+from tools.provider_api.smoke_test import CASES, DEPRECATED_ACCESS, ENV_VARS, EXPECTED, OPENAI_COMPATIBLE, build_headers, classify_response, plan_all_configured, representative_cases, resolve_credential
 
 
 
@@ -56,6 +56,55 @@ class CredentialResolutionTests(unittest.TestCase):
     def test_missing_credentials_return_no_value_or_source(self):
         with patch.dict("os.environ", {}, clear=True):
             self.assertEqual(resolve_credential("GROQ"), ("", None))
+
+
+class AllConfiguredPlanningTests(unittest.TestCase):
+    def test_plan_includes_every_provider_and_never_opts_into_paid_candidates(self):
+        aliases = {
+            "CEREBRAS_API_KEY": "CEREBRAS_API_KEY",
+            "DEEPINFRA_API_KEY": "DEEPINFRA_API_KEY",
+            "NVIDIA_API_KEY": "NVIDIA_API_KEY",
+            "HF_TOKEN": "HF_TOKEN",
+            "DEEPSEEK_API_KEY": "DEEPSEEK_API_KEY",
+            "GEMINI_API_KEY": "GEMINI_API_KEY",
+            "GROQ_API_KEY": "GROQ_API_KEY",
+            "OPENROUTER_API_KEY": "OPENROUTER_API_KEY",
+            "MISTRAL_API_KEY": "MISTRAL_API_KEY",
+            "COHERE_API_KEY": "COHERE_API_KEY",
+        }
+        with patch.dict("os.environ", {name: "test-secret" for name in aliases}, clear=True):
+            plan = plan_all_configured()
+        self.assertEqual([item["provider"] for item in plan], sorted(ENV_VARS))
+        by_provider = {item["provider"]: item for item in plan}
+        self.assertEqual(by_provider["GOOGLE"]["status"], "ready")
+        self.assertEqual(by_provider["HUGGINGFACE"]["status"], "ready")
+        self.assertEqual(by_provider["OPENROUTER"]["status"], "ready")
+        self.assertEqual(by_provider["CEREBRAS"]["status"], "skipped-paid-opt-in-required")
+        self.assertEqual(by_provider["DEEPINFRA"]["status"], "skipped-paid-opt-in-required")
+        self.assertEqual(by_provider["DEEPSEEK"]["status"], "skipped-paid-opt-in-required")
+        self.assertEqual(by_provider["GROQ"]["status"], "skipped-paid-opt-in-required")
+        self.assertEqual(by_provider["NVIDIA"]["status"], "skipped-deprecated-endpoint")
+        self.assertTrue(all(item["credential_configured"] for item in plan))
+
+    def test_plan_reports_every_missing_credential(self):
+        with patch.dict("os.environ", {}, clear=True):
+            plan = plan_all_configured()
+        self.assertEqual(len(plan), len(ENV_VARS))
+        self.assertTrue(all(item["status"] == "skipped-no-credential" for item in plan))
+        self.assertTrue(all(item["credential_env"] is None for item in plan))
+
+    def test_paid_opt_in_only_changes_the_execution_plan(self):
+        with patch.dict("os.environ", {
+            "CEREBRAS_API_KEY": "test-secret",
+            "DEEPINFRA_API_KEY": "test-secret",
+            "DEEPSEEK_API_KEY": "test-secret",
+            "GROQ_API_KEY": "test-secret",
+        }, clear=True):
+            plan = {item["provider"]: item for item in plan_all_configured(include_paid=True)}
+        self.assertEqual(plan["CEREBRAS"]["status"], "ready")
+        self.assertEqual(plan["DEEPINFRA"]["status"], "ready")
+        self.assertEqual(plan["DEEPSEEK"]["status"], "ready")
+        self.assertEqual(plan["GROQ"]["status"], "ready")
 
 class RequestHeaderTests(unittest.TestCase):
     def test_provider_requests_identify_the_application(self):
