@@ -260,6 +260,26 @@ class BatchSelectionTests(unittest.TestCase):
         self.assertNotIn("NVIDIA", selected)
 
 
+class OpenRouterFreeMatrixTests(unittest.TestCase):
+    def test_matrix_contains_only_explicit_zero_price_models(self):
+        from tools.provider_api.smoke_test import openrouter_free_cases
+
+        cases = openrouter_free_cases()
+        self.assertEqual(
+            [case["model"] for case in cases],
+            [
+                "nvidia/nemotron-3.5-lightning:free",
+                "deepseek/deepseek-v4-flash-0731:free",
+                "google/gemma-4-31b-it:free",
+                "thinkingmachines/inkling:free",
+                "thinkingmachines/inkling-small:free",
+            ],
+        )
+        self.assertTrue(all(case["provider"] == "OPENROUTER" for case in cases))
+        self.assertTrue(all(case["access"] == "catalogue-zero-price" for case in cases))
+        self.assertNotIn("openrouter/free", [case["model"] for case in cases])
+
+
 class DirectRequestAccountTests(unittest.TestCase):
     def test_direct_request_records_the_selected_credential_account(self):
         import json
