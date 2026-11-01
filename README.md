@@ -50,7 +50,27 @@ bash tools/provider_api/catalogue_inventory.sh
 python3 tools/provider_api/smoke_test.py
 ```
 
-The catalogue command writes `provider-model-catalogue.json`. The smoke test writes `provider-smoke-results.jsonl`. Both are local evidence artifacts and should be reviewed before sharing.
+The catalogue helper writes `provider-model-catalogue.json`. The unified runner writes `provider-smoke-results.jsonl`. Both are local evidence artifacts and should be reviewed before sharing.
+
+### Unified runner inventory and reporting
+
+The Python runner is the single command-line entry point for provider/account discovery, capability selection, inference execution, and evidence reporting. Its static adapter metadata lives in `tools/provider_api/provider-catalogue.json`; that catalogue records endpoints, authentication schemes, implemented capabilities, and operations. Model-level price/eligibility remains attached to individual model cases, because provider-wide pricing labels are misleading.
+
+```bash
+# Inventory known and environment-discovered providers/accounts, without requests.
+python3 tools/provider_api/smoke_test.py --inventory
+
+# Run all currently implemented chat adapters, preserving separate account identities.
+python3 tools/provider_api/smoke_test.py --all-configured
+
+# Record the current embeddings adapter backlog; this makes no provider requests.
+python3 tools/provider_api/smoke_test.py --capability embeddings
+
+# Summarize accumulated JSONL evidence, without requests.
+python3 tools/provider_api/smoke_test.py --report
+```
+
+Capability families are declared in the provider catalogue: `chat`, `embeddings`, `reranking`, `image-generation`, and `document-processing`. Only adapters listed under `implemented_capabilities` execute network requests. Other capability selections append explicit `skipped-no-capability-adapter` planning records, not false inference failures. Chat is the only implemented capability family in this initial registry. Adding an adapter means declaring its endpoint/authentication/operations in the catalogue, implementing its request/response contract, and adding deterministic tests. One runner does not mean forcing incompatible APIs through a chat-completions payload.
 
 The non-paid candidate set includes Google Gemini 3.5 Flash-Lite, Mistral Small (free API mode), Cohere Command R7B (trial key), catalogue-marked OpenRouter `:free` models (including DeepSeek V4 Flash 0731), and the DeepInfra-hosted DeepSeek V4 Flash 0731 route through Hugging Face's monthly included credits. The explicit paid-comparison batch includes Cerebras, DeepSeek, Groq, and a DeepInfra representative (`deepseek-ai/DeepSeek-V4-Flash-0731`) using DeepInfra's OpenAI-compatible chat endpoint. Hugging Face Inference Providers is also tested through its routed chat-completions endpoint. NVIDIA NIM's previously tested `openai/gpt-oss-120b` endpoint is marked deprecated and is excluded from execution. Paid or promotional-credit comparison models require explicit opt-in:
 
