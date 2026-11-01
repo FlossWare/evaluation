@@ -478,5 +478,85 @@ class ClassifyResponseTests(unittest.TestCase):
         )
 
 
+class UnifiedRunnerInventoryTests(unittest.TestCase):
+    def test_inventory_lists_each_account_without_exposing_credentials(self):
+        import io
+        from contextlib import redirect_stdout
+        from tools.provider_api.smoke_test import inventory_rows, print_inventory
+
+        secrets = {
+            "OPENROUTER_API_KEY_FLOSSWARE": "flossware-secret",
+            "OPENROUTER_API_KEY_HOTMAIL": "hotmail-secret",
+            "VOYAGEAI_API_KEY_NCRR": "voyage-secret",
+        }
+        with patch.dict("os.environ", secrets, clear=True):
+            rows = inventory_rows()
+            openrouter = [row for row in rows if row["provider"] == "OPENROUTER"]
+            self.assertEqual(
+                [row["account"] for row in openrouter],
+                ["FLOSSWARE", "HOTMAIL"],
+            )
+            self.assertTrue(all(row["credential_configured"] for row in openrouter))
+            output = io.StringIO()
+            with redirect_stdout(output):
+                print_inventory()
+
+        rendered = output.getvalue()
+        for secret in secrets.values():
+            self.assertNotIn(secret, rendered)
+        self.assertIn("OPENROUTER_API_KEY_FLOSSWARE", rendered)
+        self.assertIn("OPENROUTER_API_KEY_HOTMAIL", rendered)
+        self.assertIn("VOYAGEAI", rendered)
+
+    def test_unimplemented_capability_is_reported_without_requests(self):
+        from tools.provider_api.smoke_test import capability_plan
+
+        with patch.dict("os.environ", {
+            "OPENROUTER_API_KEY_FLOSSWARE": "test-secret",
+        }, clear=True):
+            rows = capability_plan("embeddings", ["OPENROUTER"])
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["capability"], "embeddings")
+        self.assertEqual(rows[0]["status"], "skipped-no-capability-adapter")
+        self.assertIsNone(rows[0]["http_status"])
+        self.assertFalse(rows[0]["retry_performed"])
+
+    def test_evidence_report_groups_by_provider_account_capability_and_status(self):
+        import io
+        import tempfile
+        from contextlib import redirect_stdout
+        from pathlib import Path
+        from tools.provider_api.smoke_test import print_report
+
+        with tempfile.TemporaryDirectory() as directory:
+            evidence = Path(directory) / "evidence.jsonl"
+            evidence.write_text(
+                json.dumps({
+                    "provider": "OPENROUTER",
+                    "account": "FLOSSWARE",
+                    "capability": "chat",
+                    "status": "passed",
+                }) + "\\n" +
+                json.dumps({
+                    "provider": "OPENROUTER",
+                    "account": "FLOSSWARE",
+                    "capability": "embeddings",
+                    "status": "skipped-no-capability-adapter",
+                }) + "\\n",
+                encoding="utf-8",
+            )
+            output = io.StringIO()
+            with redirect_stdout(output):
+                status = print_report(evidence)
+
+        self.assertEqual(status, 0)
+        self.assertIn("Records: 2", output.getvalue())
+        self.assertIn("chat", output.getvalue())
+        self.assertIn("embeddings", output.getvalue())
+        self.assertIn("Read-only", output.getvalue())
+
+
+
 if __name__ == "__main__":
     unittest.main()
