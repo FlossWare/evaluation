@@ -45,9 +45,12 @@ DEFAULT_PROVIDERS = ("COHERE", "GOOGLE")
 TOP_K = 5
 
 
-def load_dataset(path: Path = DATASET_PATH) -> dict[str, Any]:
+def load_dataset(path: Path = DATASET_PATH, queries_path: Path | None = None) -> dict[str, Any]:
     """Load and validate a benchmark dataset with binary relevance judgments."""
     data = json.loads(path.read_text(encoding="utf-8"))
+    if queries_path is not None:
+        query_data = json.loads(queries_path.read_text(encoding="utf-8"))
+        data["queries"] = query_data.get("queries", query_data) if isinstance(query_data, dict) else query_data
     documents = data.get("documents", [])
     queries = data.get("queries", [])
     if not isinstance(documents, list) or not isinstance(queries, list):
@@ -386,6 +389,7 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=45.0)
     parser.add_argument("--batch-size", type=int, default=64, help="Maximum texts per provider request.")
     parser.add_argument("--dataset", type=Path, default=DATASET_PATH, help="Benchmark JSON file; supports local corpus exports.")
+    parser.add_argument("--queries", type=Path, help="Separate human-reviewed query/relevance JSON file; overrides queries in the dataset.")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
     if args.timeout <= 0:
@@ -393,7 +397,7 @@ def main() -> int:
     if args.batch_size < 1:
         parser.error("--batch-size must be positive")
     try:
-        dataset = load_dataset(args.dataset)
+        dataset = load_dataset(args.dataset, args.queries)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         parser.error(f"invalid dataset {args.dataset}: {exc}")
     selected_providers = args.provider or list(DEFAULT_PROVIDERS)
