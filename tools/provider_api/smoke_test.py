@@ -214,6 +214,8 @@ def classify_http_error(status: int | None, detail: str | None) -> str | None:
 
     error = parsed.get("error", {}) if isinstance(parsed, dict) else {}
     metadata = error.get("metadata", {}) if isinstance(error, dict) else {}
+    if not isinstance(metadata, dict):
+        metadata = {}
 
     if status == 429:
         limit_source = str(metadata.get("limit_source") or "").lower()
@@ -252,6 +254,8 @@ def error_summary(detail: str | None) -> str | None:
         error = parsed.get("error")
         if isinstance(error, dict):
             metadata = error.get("metadata") or {}
+            if not isinstance(metadata, dict):
+                metadata = {}
             message = str(
                 metadata.get("raw")
                 or error.get("message")
