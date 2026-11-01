@@ -324,6 +324,10 @@ def request_case(
         env_name = credential_env
     else:
         key, env_name = resolve_credential(provider)
+        if env_name:
+            # Direct single-provider runs must record the account namespace
+            # encoded in the selected credential, not the default parameter.
+            account = credential_account_from_env_name(env_name)
     result: dict[str, Any] = {
         "observed_at": datetime.now(timezone.utc).isoformat(),
         "provider": provider,
