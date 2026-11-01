@@ -22,6 +22,7 @@ declare -A KEYS=(
   [MISTRAL]=MISTRAL_API_KEY_FLOSSWARE
   [NVIDIA]=NVIDIA_API_KEY_FLOSSWARE
   [OPENAI]=OPENAI_API_KEY_FLOSSWARE
+  [ANTHROPIC]=ANTHROPIC_API_KEY_FLOSSWARE
   [OPENROUTER]=OPENROUTER_API_KEY_FLOSSWARE
 )
 
@@ -37,6 +38,7 @@ declare -A ALIASES=(
   [MISTRAL]="MISTRAL_API_KEY"
   [NVIDIA]="NVIDIA_API_KEY"
   [OPENAI]="OPENAI_API_KEY"
+  [ANTHROPIC]="ANTHROPIC_API_KEY"
   [OPENROUTER]="OPENROUTER_API_KEY"
 )
 
@@ -51,13 +53,14 @@ declare -A URLS=(
   [MISTRAL]="https://api.mistral.ai/v1/models"
   [NVIDIA]="https://integrate.api.nvidia.com/v1/models"
   [OPENAI]="https://api.openai.com/v1/models"
+  [ANTHROPIC]="https://api.anthropic.com/v1/models"
   [OPENROUTER]="https://openrouter.ai/api/v1/models"
 )
 
 RESULTS="$TMP/results.jsonl"
 : > "$RESULTS"
 
-for provider in CEREBRAS COHERE DEEPINFRA DEEPSEEK GOOGLE GROQ                 HUGGINGFACE MISTRAL NVIDIA OPENAI OPENROUTER; do
+for provider in ANTHROPIC CEREBRAS COHERE DEEPINFRA DEEPSEEK GOOGLE GROQ HUGGINGFACE MISTRAL NVIDIA OPENAI OPENROUTER; do
   var="${KEYS[$provider]}"
   key="${!var:-}"
   if [[ -z "$key" ]]; then
@@ -78,6 +81,8 @@ for provider in CEREBRAS COHERE DEEPINFRA DEEPSEEK GOOGLE GROQ                 H
   if [[ -n "$key" ]]; then
     if [[ "$provider" == GOOGLE ]]; then
       config="$(printf 'header = "x-goog-api-key: %s"\n' "$key")"
+    elif [[ "$provider" == ANTHROPIC ]]; then
+      config="$(printf 'header = "x-api-key: %s"\nheader = "anthropic-version: 2023-06-01"\n' "$key")"
     else
       config="$(printf 'header = "Authorization: Bearer %s"\n' "$key")"
     fi
