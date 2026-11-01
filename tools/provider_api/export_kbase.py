@@ -22,17 +22,18 @@ TITLE_RE = re.compile(r"^#\s+(.+?)\s*#*\s*$", re.MULTILINE)
 
 def load_chunker(chunking_repo: Path) -> Any:
     """Load TokenChunker from a local FlossWare/chunking checkout."""
-    package_parent = chunking_repo.expanduser().resolve().parent
-    if not (package_parent / "chunking" / "chunker.py").is_file():
+    repo_root = chunking_repo.expanduser().resolve()
+    package_dir = repo_root / "chunking"
+    if not (package_dir / "chunker.py").is_file():
         raise FileNotFoundError(
-            f"Cannot find chunking package under {package_parent}; "
+            f"Cannot find chunking package at {package_dir}; "
             "provide --chunking-repo pointing to the FlossWare/chunking checkout"
         )
-    sys.path.insert(0, str(package_parent))
+    sys.path.insert(0, str(repo_root))
     try:
         from chunking import TokenChunker
     except ImportError as exc:
-        raise RuntimeError(f"Could not import TokenChunker from {package_parent}") from exc
+        raise RuntimeError(f"Could not import TokenChunker from {repo_root}") from exc
     return TokenChunker
 
 
