@@ -1,7 +1,7 @@
 """Deterministic tests for provider smoke-test response classification."""
 import unittest
 
-from tools.provider_api.smoke_test import CASES, EXPECTED, OPENAI_COMPATIBLE, build_headers, classify_response, representative_cases
+from tools.provider_api.smoke_test import CASES, DEPRECATED_ACCESS, EXPECTED, OPENAI_COMPATIBLE, build_headers, classify_response, representative_cases
 
 
 class RequestHeaderTests(unittest.TestCase):
@@ -22,19 +22,24 @@ class RequestHeaderTests(unittest.TestCase):
             "https://api.deepinfra.com/v1/openai/chat/completions",
         )
 
-    def test_nvidia_uses_nim_chat_completions_endpoint(self):
+    def test_mistral_uses_openai_compatible_chat_endpoint(self):
         self.assertEqual(
-            OPENAI_COMPATIBLE["NVIDIA"],
-            "https://integrate.api.nvidia.com/v1/chat/completions",
+            OPENAI_COMPATIBLE["MISTRAL"],
+            "https://api.mistral.ai/v1/chat/completions",
         )
+
+    def test_nvidia_candidate_is_marked_deprecated(self):
+        self.assertIn("deprecated-endpoint", DEPRECATED_ACCESS)
 
 
 class BatchSelectionTests(unittest.TestCase):
     def test_batch_selects_at_most_one_candidate_per_provider(self):
         selected = representative_cases(include_paid=False)
         self.assertEqual(len(selected), len({case["provider"] for case in selected.values()}))
-        self.assertEqual(selected["GOOGLE"]["model"], "models/gemini-2.5-flash-lite")
+        self.assertEqual(selected["GOOGLE"]["model"], "models/gemini-3.5-flash-lite")
         self.assertEqual(selected["OPENROUTER"]["model"], "nvidia/nemotron-3.5-lightning:free")
+        self.assertEqual(selected["MISTRAL"]["model"], "mistral-small-latest")
+        self.assertEqual(selected["COHERE"]["model"], "command-r7b-12-2024")
         self.assertNotIn("CEREBRAS", selected)
         self.assertNotIn("NVIDIA", selected)
 
@@ -42,8 +47,7 @@ class BatchSelectionTests(unittest.TestCase):
         selected = representative_cases(include_paid=True)
         self.assertIn("CEREBRAS", selected)
         self.assertIn("DEEPINFRA", selected)
-        self.assertIn("NVIDIA", selected)
-        self.assertEqual(selected["NVIDIA"]["model"], "openai/gpt-oss-120b")
+        self.assertNotIn("NVIDIA", selected)
 
 
 class ClassifyResponseTests(unittest.TestCase):
