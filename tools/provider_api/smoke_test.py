@@ -90,6 +90,142 @@ ENV_VAR_ALIASES = {
     "ANTHROPIC": ("ANTHROPIC_API_KEY",),
 }
 
+PROVIDER_CATALOGUE_PATH = Path(__file__).with_name("provider-catalogue.json")
+with PROVIDER_CATALOGUE_PATH.open(encoding="utf-8") as catalogue_stream:
+    PROVIDER_CATALOGUE = json.load(catalogue_stream)
+
+
+def provider_catalogue_entry(provider: str) -> dict[str, Any]:
+    """Return metadata for a provider, or an explicit unknown-adapter record."""
+    return PROVIDER_CATALOGUE.get("providers", {}).get(provider, {
+        "adapter": None,
+        "implemented_capabilities": [],
+        "known_capabilities": [],
+        "endpoint": None,
+        "authentication": None,
+        "operations": [],
+        "status": "provider-not-catalogued",
+    })
+
+
+def inventory_rows() -> list[dict[str, Any]]:
+    """Describe every known/discovered provider and each configured account without secrets."""
+    rows: list[dict[str, Any]] = []
+    for provider in discovered_provider_names():
+        entry = provider_catalogue_entry(provider)
+        accounts = credential_accounts(provider) or [{
+            "account": "DEFAULT",
+            "credential_env": None,
+            "credential": "",
+        }]
+        for account in accounts:
+            rows.append({
+                "provider": provider,
+                "account": account["account"],
+                "credential_env": account["credential_env"],
+                "credential_configured": bool(account["credential_env"]),
+                "adapter": entry.get("adapter"),
+                "implemented_capabilities": entry.get("implemented_capabilities", []),
+                "known_capabilities": entry.get("known_capabilities", []),
+                "endpoint": entry.get("endpoint"),
+                "authentication": entry.get("authentication"),
+                "status": (
+                    "ready" if account["credential_env"] and entry.get("adapter")
+                    else "skipped-no-credential" if not account["credential_env"]
+                    else entry.get("status", "skipped-no-provider-adapter")
+                ),
+            })
+    return rows
+
+
+def capability_plan(capability: str, providers: list[str] | None = None) -> list[dict[str, Any]]:
+    """Build a no-network plan for a capability family not yet backed by adapters."""
+    selected = set(providers or discovered_provider_names())
+    rows: list[dict[str, Any]] = []
+    for provider in sorted(selected):
+        entry = provider_catalogue_entry(provider)
+        accounts = credential_accounts(provider) or [{
+            "account": "DEFAULT", "credential_env": None, "credential": ""
+        }]
+        for account in accounts:
+            configured = bool(account["credential_env"])
+            supported = capability in entry.get("implemented_capabilities", [])
+            rows.append({
+                "provider": provider,
+                "account": account["account"],
+                "credential_env": account["credential_env"],
+                "credential_configured": configured,
+                "capability": capability,
+                "adapter": entry.get("adapter"),
+                "status": (
+                    "skipped-no-credential" if not configured
+                    else "ready" if supported
+                    else "skipped-no-capability-adapter"
+                ),
+                "http_status": None,
+                "latency_seconds": None,
+                "retry_performed": False,
+            })
+    return rows
+
+
+def print_inventory() -> None:
+    """Print a safe provider/account inventory; never print credential values."""
+    rows = inventory_rows()
+    print(f"{'PROVIDER':16} {'ACCOUNT':10} {'CREDENTIAL':9} {'ADAPTER':24} CAPABILITIES")
+    for item in rows:
+        credential = "yes" if item["credential_configured"] else "no"
+        adapter = item["adapter"] or "-"
+        capabilities = ",".join(item["implemented_capabilities"]) or "-"
+        print(
+            f'{item["provider"]:16} {item["account"]:10} {credential:9} '
+            f'{adapter:24} {capabilities}'
+        )
+        if item["credential_env"]:
+            print(f'  source: {item["credential_env"]}')
+        if item["endpoint"]:
+            print(f'  endpoint: {item["endpoint"]}')
+        if item["status"] not in {"ready"}:
+            print(f'  status: {item["status"]}')
+    print(f"\n{len(rows)} provider/account rows. Inventory only; no network requests or credential values.")
+
+
+def print_report(path: Path) -> int:
+    """Summarize accumulated JSONL evidence without making provider requests."""
+    if not path.exists():
+        print(f"No evidence file found: {path}", file=sys.stderr)
+        return 2
+    totals: dict[tuple[str, str, str], int] = {}
+    errors: dict[tuple[str, str, str], int] = {}
+    count = 0
+    with path.open(encoding="utf-8") as stream:
+        for line in stream:
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            provider = str(item.get("provider") or "UNKNOWN")
+            account = str(item.get("account") or "DEFAULT")
+            capability = str(item.get("capability") or "chat")
+            status = str(item.get("status") or "unknown")
+            totals[(provider, account, status)] = totals.get((provider, account, status), 0) + 1
+            if status not in {"passed"} and not status.startswith("skipped-"):
+                category = str(item.get("http_error_category") or status)
+                errors[(provider, account, category)] = errors.get((provider, account, category), 0) + 1
+            count += 1
+    print(f"Evidence report: {path}")
+    print(f"Records: {count}")
+    print(f"{'PROVIDER':16} {'ACCOUNT':10} {'STATUS':34} COUNT")
+    for (provider, account, status), total in sorted(totals.items()):
+        print(f"{provider:16} {account:10} {status:34} {total}")
+    if errors:
+        print("\nFailure categories:")
+        for (provider, account, category), total in sorted(errors.items()):
+            print(f"  {provider}/{account}: {category} ({total})")
+    print("Read-only: no provider requests were made.")
+    return 0
+
+
 
 def provider_from_env_name(env_name: str) -> str | None:
     """Map a provider credential variable name to its canonical provider."""
@@ -407,6 +543,7 @@ def request_case(
     result: dict[str, Any] = {
         "observed_at": datetime.now(timezone.utc).isoformat(),
         "provider": provider,
+        "capability": "chat",
         "account": account,
         "model_requested": model,
         "requested_max_output_tokens": max_tokens,
@@ -568,6 +705,12 @@ def request_case(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--inventory", action="store_true",
+                        help="Show all known/discovered provider accounts, credential source names, endpoints, and implemented capabilities without network requests.")
+    parser.add_argument("--report", action="store_true",
+                        help="Summarize accumulated JSONL evidence without network requests.")
+    parser.add_argument("--capability", choices=PROVIDER_CATALOGUE["capability_families"], default="chat",
+                        help="Capability family to evaluate (only implemented adapters execute requests).")
     parser.add_argument("--provider", action="append", choices=discovered_provider_names(),
                         help="Run only this provider; repeat to select several.")
     parser.add_argument("--all-configured", action="store_true",
@@ -587,6 +730,17 @@ def main() -> int:
                         help=f"Maximum generated tokens per request (default: {DEFAULT_MAX_OUTPUT_TOKENS}).")
     parser.add_argument("--output", type=Path, default=Path("provider-smoke-results.jsonl"))
     args = parser.parse_args()
+
+    if args.inventory:
+        if args.report or args.provider or args.model or args.all_configured or args.include_paid or args.openrouter_free_matrix or args.show_latest_errors or args.show_credential_sources or args.capability != "chat":
+            parser.error("--inventory cannot be combined with inference, report, or capability-selection options")
+        print_inventory()
+        return 0
+
+    if args.report:
+        if args.inventory or args.provider or args.model or args.all_configured or args.include_paid or args.openrouter_free_matrix or args.show_latest_errors or args.show_credential_sources or args.capability != "chat":
+            parser.error("--report cannot be combined with inference, inventory, or capability-selection options")
+        return print_report(args.output)
 
     if args.timeout <= 0 or args.max_output_tokens < 1:
         parser.error("--timeout must be positive and --max-output-tokens must be at least 1")
@@ -636,6 +790,22 @@ def main() -> int:
             )
             print(f"  {detail}")
         print("Read-only: no provider requests were made.")
+        return 0
+
+    if args.capability != "chat":
+        if args.model or args.include_paid or args.openrouter_free_matrix:
+            parser.error("--model, --include-paid, and --openrouter-free-matrix currently apply only to chat")
+        results = capability_plan(args.capability, args.provider)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        with args.output.open("a", encoding="utf-8") as stream:
+            for item in results:
+                stream.write(json.dumps(item, ensure_ascii=False) + "\\n")
+        unsupported = sum(item["status"] == "skipped-no-capability-adapter" for item in results)
+        missing = sum(item["status"] == "skipped-no-credential" for item in results)
+        print(f"Capability: {args.capability}")
+        print(f"Provider/account rows: {len(results)}; adapters not implemented: {unsupported}; no credentials: {missing}.")
+        print("No provider requests were made. These rows are explicit adapter backlog, not inference failures.")
+        print(f"Evidence: {args.output}")
         return 0
 
     if args.openrouter_free_matrix and (
