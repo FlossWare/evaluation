@@ -551,7 +551,7 @@ def embedding_request_spec(case: dict[str, str]) -> tuple[str, dict[str, Any]]:
             f"https://generativelanguage.googleapis.com/v1beta/{model}:embedContent",
             {
                 "content": {"parts": [{"text": EMBEDDING_TEXT}]},
-                "taskType": "RETRIEVAL_DOCUMENT",
+                "embedContentConfig": {"taskType": "RETRIEVAL_DOCUMENT"},
             },
         )
     if provider == "COHERE":
