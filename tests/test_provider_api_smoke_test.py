@@ -32,6 +32,40 @@ class RequestHeaderTests(unittest.TestCase):
         self.assertIn("deprecated-endpoint", DEPRECATED_ACCESS)
 
 
+class HttpErrorClassificationTests(unittest.TestCase):
+    def test_deepseek_insufficient_balance_is_not_called_model_failure(self):
+        from tools.provider_api.smoke_test import classify_http_error
+        self.assertEqual(
+            classify_http_error(402, '{"error":{"message":"Insufficient Balance"}}'),
+            "insufficient-account-balance",
+        )
+
+    def test_cerebras_team_subscription_error_is_identified(self):
+        from tools.provider_api.smoke_test import classify_http_error
+        self.assertEqual(
+            classify_http_error(402, "Team org requires active subscription or available credit"),
+            "organization-subscription-or-credit-required",
+        )
+
+    def test_huggingface_credit_error_is_identified(self):
+        from tools.provider_api.smoke_test import classify_http_error
+        self.assertEqual(
+            classify_http_error(402, "Inference Providers credits exhausted"),
+            "account-credit-or-billing-required",
+        )
+
+    def test_unknown_402_is_not_overclassified(self):
+        from tools.provider_api.smoke_test import classify_http_error
+        self.assertEqual(
+            classify_http_error(402, "Payment required"),
+            "account-credit-or-billing-required",
+        )
+
+    def test_non_402_is_not_a_billing_failure(self):
+        from tools.provider_api.smoke_test import classify_http_error
+        self.assertIsNone(classify_http_error(403, "Forbidden"))
+
+
 class BatchSelectionTests(unittest.TestCase):
     def test_batch_selects_at_most_one_candidate_per_provider(self):
         selected = representative_cases(include_paid=False)
