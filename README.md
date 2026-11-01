@@ -58,13 +58,13 @@ The non-paid candidate set includes Google Gemini 3.5 Flash-Lite, Mistral Small 
 python3 tools/provider_api/smoke_test.py --include-paid
 ```
 
-Run one representative candidate for every provider in a single batch:
+Run the complete provider inventory in one batch:
 
 ```bash
 python3 tools/provider_api/smoke_test.py --all-configured
 ```
 
-This checks one non-paid candidate per provider where available, including Gemini 3.5 Flash-Lite, Mistral Small, Cohere Command R7B, and OpenRouter free candidates. Providers without credentials are recorded as skipped; providers whose only configured candidate is paid or promotional-credit based are also skipped unless `--include-paid` is supplied. Deprecated endpoints are always skipped. To explicitly include those candidates:
+This iterates every known provider, not merely the providers with a ready model. It runs at most one representative candidate for each provider with a configured credential and a free/trial/zero-price candidate, including Gemini 3.5 Flash-Lite, Mistral Small, Cohere Command R7B, Hugging Face's monthly included-credit route, and OpenRouter free candidates. Every other provider is still written to the evidence file with an explicit skip reason: no credential, paid candidate requiring opt-in, deprecated endpoint, or no supported chat candidate. The final summary reports the complete provider count and skip categories. Paid/promotional-credit candidates are never invoked by default; `--include-paid` is a separate explicit opt-in and may incur charges. Deprecated endpoints are always skipped. To explicitly include those candidates:
 
 ```bash
 python3 tools/provider_api/smoke_test.py --all-configured --include-paid
