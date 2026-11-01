@@ -25,7 +25,9 @@ EXPECTED = "FLOSSWARE_PROVIDER_SMOKE_OK"
 # Gemini models visible in the authenticated catalogue. Paid/promotional-credit
 # comparisons require --include-paid.
 CASES: list[dict[str, str]] = [
-    {"provider": "GOOGLE", "model": "models/gemini-2.5-flash-lite", "access": "free-tier-candidate"},
+    {"provider": "GOOGLE", "model": "models/gemini-3.5-flash-lite", "access": "free-tier-candidate"},
+    {"provider": "MISTRAL", "model": "mistral-small-latest", "access": "free-tier-candidate"},
+    {"provider": "COHERE", "model": "command-r7b-12-2024", "access": "free-trial-candidate"},
     {"provider": "GOOGLE", "model": "models/gemini-2.5-flash", "access": "free-tier-candidate"},
     {"provider": "OPENROUTER", "model": "nvidia/nemotron-3.5-lightning:free", "access": "catalogue-zero-price"},
     {"provider": "OPENROUTER", "model": "google/gemma-4-31b-it:free", "access": "catalogue-zero-price"},
@@ -33,7 +35,7 @@ CASES: list[dict[str, str]] = [
     {"provider": "OPENROUTER", "model": "thinkingmachines/inkling-small:free", "access": "catalogue-zero-price"},
     {"provider": "OPENROUTER", "model": "openrouter/free", "access": "catalogue-zero-price-router"},
     {"provider": "DEEPINFRA", "model": "deepseek-ai/DeepSeek-V4-Flash-0731", "access": "paid"},
-    {"provider": "NVIDIA", "model": "openai/gpt-oss-120b", "access": "paid"},
+    {"provider": "NVIDIA", "model": "openai/gpt-oss-120b", "access": "deprecated-endpoint"},
     {"provider": "HUGGINGFACE", "model": "openai/gpt-oss-120b:fastest", "access": "paid-or-account-credit"},
     {"provider": "CEREBRAS", "model": "gpt-oss-120b", "access": "promotional-or-paid"},
     {"provider": "CEREBRAS", "model": "qwen-3.8-27b", "access": "promotional-or-paid"},
@@ -47,6 +49,7 @@ OPENAI_COMPATIBLE = {
     "NVIDIA": "https://integrate.api.nvidia.com/v1/chat/completions",
     "HUGGINGFACE": "https://router.huggingface.co/v1/chat/completions",
     "DEEPSEEK": "https://api.deepseek.com/chat/completions",
+    "MISTRAL": "https://api.mistral.ai/v1/chat/completions",
     "GROQ": "https://api.groq.com/openai/v1/chat/completions",
     "OPENROUTER": "https://openrouter.ai/api/v1/chat/completions",
 }
@@ -59,6 +62,8 @@ ENV_VARS = {
     "GOOGLE": "GOOGLE_API_KEY_FLOSSWARE",
     "GROQ": "GROQ_API_KEY_FLOSSWARE",
     "OPENROUTER": "OPENROUTER_API_KEY_FLOSSWARE",
+    "MISTRAL": "MISTRAL_API_KEY_FLOSSWARE",
+    "COHERE": "COHERE_API_KEY_FLOSSWARE",
 }
 
 
@@ -82,6 +87,8 @@ def build_headers(provider: str, key: str) -> dict[str, str]:
         headers["x-goog-api-key"] = key
     else:
         headers["Authorization"] = f"Bearer {key}"
+    if provider == "COHERE":
+        headers["X-Client-Name"] = "FlossWare provider API smoke test"
     if provider == "OPENROUTER":
         headers["HTTP-Referer"] = "https://flossware.org"
         headers["X-Title"] = "FlossWare provider API smoke test"
@@ -105,6 +112,9 @@ def classify_response(text: str, finish_reason: str | None, reasoning_tokens: in
     return "complete", "response-mismatch", False
 
 
+DEPRECATED_ACCESS = {"deprecated-endpoint"}
+
+
 PAID_ACCESS = {
     "paid", "paid-or-account-credit", "paid-unless-account-credit",
     "promotional-or-paid",
@@ -115,7 +125,7 @@ def representative_cases(include_paid: bool) -> dict[str, dict[str, str]]:
     """Choose at most one catalogue candidate per provider, preserving catalogue order."""
     selected: dict[str, dict[str, str]] = {}
     for case in CASES:
-        if include_paid or case["access"] not in PAID_ACCESS:
+        if case["access"] not in DEPRECATED_ACCESS and (include_paid or case["access"] not in PAID_ACCESS):
             selected.setdefault(case["provider"], case)
     return selected
 
@@ -153,6 +163,15 @@ def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[
         payload = {
             "contents": [{"role": "user", "parts": [{"text": PROMPT}]}],
             "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0},
+        }
+    elif provider == "COHERE":
+        url = "https://api.cohere.com/v2/chat"
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": PROMPT}],
+            "max_tokens": max_tokens,
+            "temperature": 0,
+            "stream": False,
         }
     else:
         url = OPENAI_COMPATIBLE[provider]
@@ -199,6 +218,16 @@ def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[
             result["model_returned"] = data.get("modelVersion") or model
             result["finish_reason"] = candidate.get("finishReason")
             result["usage"] = data.get("usageMetadata")
+        elif provider == "COHERE":
+            message = data.get("message") or {}
+            content = message.get("content") or []
+            text = "".join(
+                part.get("text", "") for part in content
+                if isinstance(part, dict) and part.get("type") == "text"
+            )
+            result["model_returned"] = data.get("model") or model
+            result["finish_reason"] = data.get("finish_reason")
+            result["usage"] = data.get("usage")
         else:
             choices = data.get("choices") or []
             choice = choices[0] if choices else {}
@@ -215,6 +244,8 @@ def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[
         usage = result["usage"] or {}
         if provider == "GOOGLE":
             reasoning_tokens = usage.get("thoughtsTokenCount", 0)
+        elif provider == "COHERE":
+            reasoning_tokens = 0
         else:
             completion_details = usage.get("completion_tokens_details") or {}
             reasoning_tokens = completion_details.get("reasoning_tokens", usage.get("reasoning_tokens", 0))
@@ -313,11 +344,17 @@ def main() -> int:
                 })
             elif case is None:
                 paid_case = next((c for c in CASES if c["provider"] == provider), None)
+                skip_status = (
+                    "skipped-deprecated-endpoint"
+                    if paid_case and paid_case["access"] in DEPRECATED_ACCESS
+                    else "skipped-paid-opt-in-required"
+                    if paid_case else "skipped-no-chat-candidate"
+                )
                 results.append({
                     "provider": provider,
                     "model_requested": paid_case["model"] if paid_case else None,
                     "credential_configured": True, "http_status": None,
-                    "latency_seconds": None, "status": "skipped-paid-opt-in-required",
+                    "latency_seconds": None, "status": skip_status,
                     "access_classification": paid_case["access"] if paid_case else None,
                     "retry_performed": False,
                 })
@@ -328,6 +365,7 @@ def main() -> int:
             case for case in CASES
             if (not args.provider or case["provider"] in args.provider)
             and (not args.model or case["model"] == args.model)
+            and case["access"] not in DEPRECATED_ACCESS
             and (args.include_paid or case["access"] not in PAID_ACCESS)
         ]
         if not selected and args.model:
@@ -344,7 +382,8 @@ def main() -> int:
         status = item["status"]
         http = item["http_status"] if item["http_status"] is not None else "-"
         latency = item["latency_seconds"] if item["latency_seconds"] is not None else "-"
-        print(f'{item["provider"]:10} {item["model_requested"]:46} {status:24} HTTP={http} latency={latency}s')
+        model_label = item["model_requested"] or "-"
+        print(f'{item["provider"]:10} {model_label:46} {status:30} HTTP={http} latency={latency}s')
 
     passed = sum(item["status"] == "passed" for item in results)
     skipped = sum(item["status"].startswith("skipped-") for item in results)
