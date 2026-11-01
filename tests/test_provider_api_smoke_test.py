@@ -233,6 +233,77 @@ class HttpErrorClassificationTests(unittest.TestCase):
         from tools.provider_api.smoke_test import classify_http_error
         self.assertIsNone(classify_http_error(403, "Forbidden"))
 
+    def test_openrouter_shared_pool_429_is_classified_as_upstream_rate_limit(self):
+        from tools.provider_api.smoke_test import classify_http_error
+
+        detail = json.dumps({
+            "error": {
+                "metadata": {
+                    "provider_name": "Google AI Studio",
+                    "is_byok": False,
+                    "limit_source": "upstream_provider_shared_pool",
+                }
+            }
+        })
+        self.assertEqual(
+            classify_http_error(429, detail),
+            "upstream-shared-pool-rate-limit",
+        )
+
+    def test_byok_429_is_distinguished_from_shared_pool_limit(self):
+        from tools.provider_api.smoke_test import classify_http_error
+
+        detail = json.dumps({"error": {"metadata": {"is_byok": True}}})
+        self.assertEqual(
+            classify_http_error(429, detail),
+            "byok-provider-rate-limit",
+        )
+
+    def test_unclassified_429_is_still_identified_as_rate_limit(self):
+        from tools.provider_api.smoke_test import classify_http_error
+
+        self.assertEqual(
+            classify_http_error(429, "Too many requests"),
+            "rate-limit-unclassified",
+        )
+
+    def test_provider_error_sanitizer_removes_user_ids_and_redacts_secrets(self):
+        from tools.provider_api.smoke_test import sanitize_error_detail
+
+        detail = json.dumps({
+            "error": {
+                "message": "Provider returned error",
+                "metadata": {
+                    "raw": "request rejected using secret-value",
+                    "user_id": "provider-user-123",
+                },
+            },
+            "userId": "top-level-user-456",
+        })
+        sanitized = sanitize_error_detail(detail, "secret-value")
+
+        self.assertNotIn("provider-user-123", sanitized)
+        self.assertNotIn("top-level-user-456", sanitized)
+        self.assertNotIn("user_id", sanitized)
+        self.assertNotIn("userId", sanitized)
+        self.assertNotIn("secret-value", sanitized)
+        self.assertIn("[REDACTED]", sanitized)
+        self.assertIn("Google", sanitized) if "Google" in sanitized else None
+
+    def test_error_summary_prefers_provider_diagnostic_detail(self):
+        from tools.provider_api.smoke_test import error_summary
+
+        detail = json.dumps({
+            "error": {
+                "message": "Provider returned error",
+                "metadata": {
+                    "raw": "temporarily rate-limited upstream",
+                    "provider_name": "Google AI Studio",
+                },
+            }
+        })
+        self.assertEqual(error_summary(detail), "temporarily rate-limited upstream")
+
 
 class BatchSelectionTests(unittest.TestCase):
     def test_batch_selects_at_most_one_candidate_per_provider(self):
