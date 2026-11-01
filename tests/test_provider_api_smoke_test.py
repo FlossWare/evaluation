@@ -593,6 +593,12 @@ class EmbeddingAdapterTests(unittest.TestCase):
         )
         self.assertEqual(
             embedding_request_spec({
+                "provider": "GOOGLE", "model": "models/gemini-embedding-001", "access": "test"
+            })[1]["embedContentConfig"]["taskType"],
+            "RETRIEVAL_DOCUMENT",
+        )
+        self.assertEqual(
+            embedding_request_spec({
                 "provider": "COHERE", "model": "embed-v4.0", "access": "test"
             })[1]["input_type"],
             "search_document",
