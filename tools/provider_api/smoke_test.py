@@ -107,7 +107,12 @@ def provider_from_env_name(env_name: str) -> str | None:
     if not match:
         return None
     provider = match.group(1)
-    return {"HF": "HUGGINGFACE", "HUGGING_FACE": "HUGGINGFACE", "GEMINI": "GOOGLE"}.get(provider, provider)
+    return {
+        "HF": "HUGGINGFACE",
+        "HUGGING_FACE": "HUGGINGFACE",
+        "GEMINI": "GOOGLE",
+        "THINKINGMACHINES": "THINKMACHINES",
+    }.get(provider, provider)
 
 
 def credential_account_from_env_name(env_name: str) -> str:
@@ -630,7 +635,7 @@ def main() -> int:
                 "skipped-no-provider-adapter",
             )
         }
-        print(f"\nProvider inventory: {len(results)} providers examined.")
+        print(f"\nProvider/account inventory: {len(results)} rows examined.")
         print(f"Eligible requests: {len(results) - skipped}; passed: {passed}; failed: {failed}.")
         for reason, count in by_reason.items():
             if count:
