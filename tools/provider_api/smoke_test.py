@@ -746,7 +746,7 @@ def main() -> int:
         parser.error("--timeout must be positive and --max-output-tokens must be at least 1")
 
     if args.show_credential_sources:
-        if args.show_latest_errors or args.all_configured or args.provider or args.model or args.include_paid:
+        if args.show_latest_errors or args.all_configured or args.provider or args.model or args.include_paid or args.report or args.capability != "chat":
             parser.error("--show-credential-sources cannot be combined with other selection options")
         for provider in discovered_provider_names():
             names = [
@@ -758,7 +758,7 @@ def main() -> int:
         return 0
 
     if args.show_latest_errors:
-        if args.all_configured or args.provider or args.model or args.include_paid or args.show_credential_sources:
+        if args.all_configured or args.provider or args.model or args.include_paid or args.show_credential_sources or args.inventory or args.report or args.capability != "chat":
             parser.error("--show-latest-errors cannot be combined with inference-selection options")
         if not args.output.exists():
             parser.error(f"No evidence file found: {args.output}")
