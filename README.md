@@ -119,6 +119,56 @@ The benchmark requires `--run` before making network requests. By default it sel
 
 The dataset is a small engineering-focused diagnostic, not a statistically representative benchmark or a substitute for a production corpus. Gold relevance judgments are hand-curated. Compare provider rankings on this same dataset, then validate promising candidates against representative FlossWare documents and queries before selecting a production embedding model. Vector spaces remain model-specific: do not mix Cohere and Gemini vectors in one fixed-dimension index.
 
+#### Benchmarking an exported FlossWare corpus
+
+The semantic benchmark accepts an external JSON dataset through `--dataset`. This lets the evaluation harness stay independent of the live PostgreSQL schema and avoids coupling this repository to private corpus storage.
+
+Dataset format:
+
+```json
+{
+  "name": "flossware-corpus-v1",
+  "source": "postgresql-export",
+  "version": 1,
+  "documents": [
+    {
+      "id": "stable-chunk-id",
+      "text": "The canonical chunk text used for retrieval.",
+      "metadata": {
+        "document_id": "source-document-id",
+        "collection": "collection-name"
+      }
+    }
+  ],
+  "queries": [
+    {
+      "id": "q-001",
+      "text": "A realistic search query.",
+      "relevant": ["stable-chunk-id"]
+    }
+  ]
+}
+```
+
+Document metadata is optional and is not sent to embedding providers or written to result evidence. Document IDs are used to map relevance judgments and ranked results. Each query must have at least one manually reviewed relevant chunk ID. Keep this dataset local and out of Git when it contains private corpus text.
+
+Run planning and execution:
+
+```bash
+# Validate and plan only; no provider requests.
+python3 tools/provider_api/embedding_benchmark.py --dataset /path/to/flossware-benchmark.json
+
+# Execute after reviewing the dataset and provider data-sharing implications.
+python3 tools/provider_api/embedding_benchmark.py --dataset /path/to/flossware-benchmark.json --run
+
+# Larger datasets are sent in bounded batches (default 64 texts per request).
+python3 tools/provider_api/embedding_benchmark.py --dataset /path/to/flossware-benchmark.json --batch-size 32
+```
+
+The benchmark sends the actual document chunks and query text to each selected external embedding provider when `--run` is supplied. Do not include credentials, secrets, personal data, Red Hat confidential material, or content that is not approved for that provider. Only aggregate metrics, stable IDs, and request metadata are written to JSONL evidence; raw vectors and source text are not persisted by the runner. The dataset file itself remains under the caller's control.
+
+For a credible corpus benchmark, sample representative chunks from the PostgreSQL knowledge corpus, create realistic queries, and have a human review the relevant chunk IDs. Do not infer relevance from an existing embedding model's nearest-neighbor results alone; that would bake the incumbent model's bias into the gold labels. Use a stable corpus snapshot and keep document/query sets identical across providers.
+
 Provider API references: [Voyage embeddings](https://docs.voyageai.com/docs/embeddings), [Jina embeddings](https://docs.jina.ai/), [Cohere Embed v2](https://docs.cohere.com/reference/embed), [Google embedContent](https://ai.google.dev/api/embeddings), [OpenAI embeddings](https://developers.openai.com/api/reference/resources/embeddings/methods/create), [Mistral embeddings](https://docs.mistral.ai/api/endpoint/embeddings).
 
 The non-paid candidate set includes Google Gemini 3.5 Flash-Lite, Mistral Small (free API mode), Cohere Command R7B (trial key), catalogue-marked OpenRouter `:free` models (including DeepSeek V4 Flash 0731), and the DeepInfra-hosted DeepSeek V4 Flash 0731 route through Hugging Face's monthly included credits. The explicit paid-comparison batch includes Cerebras, DeepSeek, Groq, and a DeepInfra representative (`deepseek-ai/DeepSeek-V4-Flash-0731`) using DeepInfra's OpenAI-compatible chat endpoint. Hugging Face Inference Providers is also tested through its routed chat-completions endpoint. NVIDIA NIM's previously tested `openai/gpt-oss-120b` endpoint is marked deprecated and is excluded from execution. Paid or promotional-credit comparison models require explicit opt-in:
