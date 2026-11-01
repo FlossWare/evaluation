@@ -161,8 +161,29 @@ def chat_candidate(model):
     if provider == "GOOGLE":
         methods = model.get("generation_methods") or []
         return "generateContent" in methods
-    text = " ".join(str(model.get(k) or "") for k in ("id", "endpoints", "capabilities"))
-    return not non_chat.search(text)
+
+    inputs = model.get("input_modalities")
+    outputs = model.get("output_modalities")
+    if inputs is not None or outputs is not None:
+        input_text = isinstance(inputs, list) and "text" in [str(x).lower() for x in inputs]
+        output_text = isinstance(outputs, list) and "text" in [str(x).lower() for x in outputs]
+        return input_text and output_text
+
+    endpoints = model.get("endpoints")
+    if isinstance(endpoints, list):
+        return any(
+            marker in str(endpoint).lower()
+            for endpoint in endpoints
+            for marker in ("chat/completions", "/messages", "/responses")
+        )
+
+    capabilities = model.get("capabilities")
+    if isinstance(capabilities, list):
+        known_chat_tasks = {"text-generation", "conversational", "chat-completion"}
+        return bool(known_chat_tasks.intersection(str(x).lower() for x in capabilities))
+
+    # Missing metadata is unknown, not evidence of chat capability.
+    return False
 
 candidates = [m for m in models if chat_candidate(m)]
 
