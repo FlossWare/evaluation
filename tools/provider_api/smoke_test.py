@@ -171,6 +171,17 @@ def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[
             result["provider_request_id"] = result["provider_request_id"] or data.get("id")
 
         result["response_text"] = safe_text(text, key)
+
+        # Preserve provider-native usage while exposing normalized reasoning usage.
+        usage = result["usage"] or {}
+        if provider == "GOOGLE":
+            reasoning_tokens = usage.get("thoughtsTokenCount", 0)
+        else:
+            completion_details = usage.get("completion_tokens_details") or {}
+            reasoning_tokens = completion_details.get("reasoning_tokens", usage.get("reasoning_tokens", 0))
+        result["reasoning_tokens"] = reasoning_tokens or 0
+        result["visible_output_chars"] = len(text.strip())
+
         (
             result["response_completeness"],
             result["status"],
