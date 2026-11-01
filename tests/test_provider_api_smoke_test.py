@@ -1,7 +1,20 @@
 """Deterministic tests for provider smoke-test response classification."""
 import unittest
 
-from tools.provider_api.smoke_test import EXPECTED, classify_response
+from tools.provider_api.smoke_test import EXPECTED, build_headers, classify_response
+
+
+class RequestHeaderTests(unittest.TestCase):
+    def test_provider_requests_identify_the_application(self):
+        headers = build_headers("CEREBRAS", "test-key")
+        self.assertEqual(headers["User-Agent"], "FlossWare-ProviderSmoke/0.1")
+        self.assertEqual(headers["Accept"], "application/json")
+        self.assertEqual(headers["Authorization"], "Bearer test-key")
+
+    def test_google_uses_its_api_key_header(self):
+        headers = build_headers("GOOGLE", "test-key")
+        self.assertEqual(headers["x-goog-api-key"], "test-key")
+        self.assertNotIn("Authorization", headers)
 
 
 class ClassifyResponseTests(unittest.TestCase):
