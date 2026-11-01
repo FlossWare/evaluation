@@ -46,18 +46,39 @@ TOP_K = 5
 
 
 def load_dataset(path: Path = DATASET_PATH) -> dict[str, Any]:
-    """Load and validate the fixed benchmark dataset."""
+    """Load and validate a benchmark dataset with binary relevance judgments."""
     data = json.loads(path.read_text(encoding="utf-8"))
     documents = data.get("documents", [])
     queries = data.get("queries", [])
-    doc_ids = [item["id"] for item in documents]
-    if not documents or not queries or len(doc_ids) != len(set(doc_ids)):
-        raise ValueError("Dataset must contain unique document IDs and at least one query")
+    if not isinstance(documents, list) or not isinstance(queries, list):
+        raise ValueError("Dataset documents and queries must be arrays")
+    doc_ids = [item.get("id") for item in documents if isinstance(item, dict)]
+    query_ids = [item.get("id") for item in queries if isinstance(item, dict)]
+    if (
+        not documents
+        or not queries
+        or len(doc_ids) != len(documents)
+        or len(query_ids) != len(queries)
+        or any(not isinstance(value, str) or not value.strip() for value in doc_ids + query_ids)
+        or len(doc_ids) != len(set(doc_ids))
+        or len(query_ids) != len(set(query_ids))
+    ):
+        raise ValueError("Dataset must contain non-empty unique document and query IDs")
+    if any(not isinstance(item.get("text"), str) or not item["text"].strip() for item in documents + queries):
+        raise ValueError("Every document and query must contain non-empty text")
     known = set(doc_ids)
     for query in queries:
         relevant = query.get("relevant", [])
-        if not relevant or not set(relevant).issubset(known):
+        if (
+            not isinstance(relevant, list)
+            or not relevant
+            or any(not isinstance(value, str) for value in relevant)
+            or not set(relevant).issubset(known)
+        ):
             raise ValueError(f"Query {query.get('id')} has missing or unknown relevance IDs")
+    data.setdefault("name", path.stem)
+    data.setdefault("source", "local-dataset")
+    data.setdefault("version", 1)
     return data
 
 
@@ -246,6 +267,33 @@ def post_embeddings(
         raise ProviderRequestError(None, str(reason), time.monotonic() - started) from exc
 
 
+def embed_in_batches(
+    provider: str,
+    model: str,
+    key: str,
+    texts: list[str],
+    mode: str,
+    timeout: float,
+    batch_size: int,
+) -> tuple[list[list[float]], dict[str, Any]]:
+    """Embed a larger corpus in bounded batches without persisting vectors."""
+    if batch_size < 1:
+        raise ValueError("Batch size must be positive")
+    vectors: list[list[float]] = []
+    requests: list[dict[str, Any]] = []
+    for start in range(0, len(texts), batch_size):
+        batch_vectors, metadata = post_embeddings(
+            provider, model, key, texts[start:start + batch_size], mode, timeout
+        )
+        vectors.extend(batch_vectors)
+        requests.append(metadata)
+    return vectors, {
+        "request_count": len(requests),
+        "latency_seconds": round(sum(item["latency_seconds"] for item in requests), 3),
+        "requests": requests,
+    }
+
+
 class ProviderRequestError(RuntimeError):
     def __init__(self, status: int | None, detail: str, elapsed: float):
         super().__init__(detail)
@@ -267,6 +315,7 @@ def run_provider(
     account: dict[str, str],
     dataset: dict[str, Any],
     timeout: float,
+    batch_size: int,
 ) -> dict[str, Any]:
     key = account["credential"]
     docs = dataset["documents"]
@@ -279,8 +328,11 @@ def run_provider(
         "credential_env": account["credential_env"],
         "model": case["model"],
         "access_classification": case["access"],
+        "dataset_name": dataset["name"],
+        "dataset_source": dataset["source"],
         "dataset_version": dataset["version"],
         "top_k": TOP_K,
+        "batch_size": batch_size,
         "document_count": len(docs),
         "query_count": len(queries),
         "status": "failed",
@@ -288,11 +340,13 @@ def run_provider(
         "vectors_persisted": False,
     }
     try:
-        document_vectors, document_meta = post_embeddings(
-            provider, case["model"], key, [item["text"] for item in docs], "document", timeout
+        document_vectors, document_meta = embed_in_batches(
+            provider, case["model"], key, [item["text"] for item in docs],
+            "document", timeout, batch_size
         )
-        query_vectors, query_meta = post_embeddings(
-            provider, case["model"], key, [item["text"] for item in queries], "query", timeout
+        query_vectors, query_meta = embed_in_batches(
+            provider, case["model"], key, [item["text"] for item in queries],
+            "query", timeout, batch_size
         )
         metrics = ranking_metrics(
             query_vectors, document_vectors, [item["id"] for item in docs], queries
@@ -330,11 +384,18 @@ def main() -> int:
     parser.add_argument("--include-paid", action="store_true", help="Explicitly allow paid/account-credit candidates.")
     parser.add_argument("--all-accounts", action="store_true", help="Run once per configured account instead of only the preferred account.")
     parser.add_argument("--timeout", type=float, default=45.0)
+    parser.add_argument("--batch-size", type=int, default=64, help="Maximum texts per provider request.")
+    parser.add_argument("--dataset", type=Path, default=DATASET_PATH, help="Benchmark JSON file; supports local corpus exports.")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
     if args.timeout <= 0:
         parser.error("--timeout must be positive")
-    dataset = load_dataset()
+    if args.batch_size < 1:
+        parser.error("--batch-size must be positive")
+    try:
+        dataset = load_dataset(args.dataset)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        parser.error(f"invalid dataset {args.dataset}: {exc}")
     selected_providers = args.provider or list(DEFAULT_PROVIDERS)
     cases = {item["provider"]: item for item in EMBEDDING_CASES}
     plans: list[tuple[str, dict[str, str], dict[str, str]]] = []
@@ -352,7 +413,7 @@ def main() -> int:
             print(
                 f"{provider:10} {account['account']:10} {case['model']:32} "
                 f"planned ({len(dataset['documents'])} docs + {len(dataset['queries'])} queries; "
-                "2 batch requests)"
+                f"{math.ceil(len(dataset['documents']) / args.batch_size) + math.ceil(len(dataset['queries']) / args.batch_size)} batch requests)"
             )
     if not args.run:
         print("Planning only: no provider requests were made. Add --run to execute.")
@@ -361,7 +422,7 @@ def main() -> int:
         print("No eligible configured provider/account combinations.", file=sys.stderr)
         return 2
     results = [
-        run_provider(provider, case, account, dataset, args.timeout)
+        run_provider(provider, case, account, dataset, args.timeout, args.batch_size)
         for provider, case, account in plans
     ]
     args.output.parent.mkdir(parents=True, exist_ok=True)
