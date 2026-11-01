@@ -73,6 +73,40 @@ def safe_text(value: Any, secret: str) -> str:
     return text[:2000]
 
 
+def classify_http_error(status: int | None, detail: str | None) -> str | None:
+    """Classify provider HTTP errors without confusing billing with inference failure."""
+    if status != 402:
+        return None
+    message = (detail or "").lower()
+    if "team" in message and ("subscription" in message or "credit" in message):
+        return "organization-subscription-or-credit-required"
+    if "insufficient balance" in message or "no balance" in message:
+        return "insufficient-account-balance"
+    if any(term in message for term in ("credit", "billing", "payment required", "payment_required")):
+        return "account-credit-or-billing-required"
+    return "payment-required-unclassified"
+
+
+def error_summary(detail: str | None) -> str | None:
+    """Extract a compact provider message for console output; never print credentials."""
+    if not detail:
+        return None
+    message = detail
+    try:
+        parsed = json.loads(detail)
+    except (json.JSONDecodeError, TypeError):
+        parsed = None
+    if isinstance(parsed, dict):
+        error = parsed.get("error")
+        if isinstance(error, dict):
+            message = str(error.get("message") or error.get("detail") or error)
+        elif isinstance(error, str):
+            message = error
+        else:
+            message = str(parsed.get("message") or parsed.get("detail") or detail)
+    return " ".join(message.split())[:240]
+
+
 def build_headers(provider: str, key: str) -> dict[str, str]:
     """Build explicit application-identifying headers for provider API requests."""
     headers = {
@@ -278,6 +312,7 @@ def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[
         except Exception:
             detail = str(exc)
         result["error"] = safe_text(detail, key)
+        result["http_error_category"] = classify_http_error(exc.code, result["error"])
         result["status"] = "http-error"
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         result["latency_seconds"] = round(time.monotonic() - started, 3)
@@ -383,6 +418,10 @@ def main() -> int:
         latency = item["latency_seconds"] if item["latency_seconds"] is not None else "-"
         model_label = item["model_requested"] or "-"
         print(f'{item["provider"]:10} {model_label:46} {status:30} HTTP={http} latency={latency}s')
+        detail = error_summary(item.get("error"))
+        if detail:
+            category = item.get("http_error_category") or "provider-error"
+            print(f"  detail [{category}]: {detail}")
 
     passed = sum(item["status"] == "passed" for item in results)
     skipped = sum(item["status"].startswith("skipped-") for item in results)
