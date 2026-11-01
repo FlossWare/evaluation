@@ -43,7 +43,7 @@ The harness does not own provider selection, routing, credential storage, retrie
 
 ### Run
 
-From the repository root, with the relevant `*_API_KEY_FLOSSWARE` variables exported:
+From the repository root, with the relevant provider credentials exported. The harness first checks each `*_API_KEY_FLOSSWARE` name, then falls back to the provider's conventional name (for example, `CEREBRAS_API_KEY`, `DEEPSEEK_API_KEY`, `GOOGLE_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `MISTRAL_API_KEY`, or `COHERE_API_KEY`). Hugging Face accepts `HUGGINGFACE_API_KEY`, `HF_TOKEN`, and `HUGGING_FACE_HUB_TOKEN`; Google also accepts `GEMINI_API_KEY`. When more than one is set, the FlossWare-specific variable takes precedence. Only the selected variable's name is recorded, never its value:
 
 ```bash
 bash tools/provider_api/catalogue_inventory.sh
