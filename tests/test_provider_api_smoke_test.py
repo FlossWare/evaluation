@@ -691,7 +691,7 @@ class EmbeddingAdapterTests(unittest.TestCase):
         from tools.provider_api.smoke_test import plan_capability_all_configured
 
         env = {
-            "VOYAGE_API_KEY_FLOSSWARE": "voyage-secret",
+            "VOYAGEAI_API_KEY_FLOSSWARE": "voyage-secret",
             "JINA_API_KEY_FLOSSWARE": "jina-secret",
             "OPENAI_API_KEY_FLOSSWARE": "openai-secret",
         }
@@ -712,7 +712,7 @@ class EmbeddingAdapterTests(unittest.TestCase):
 
         with patch.dict("os.environ", {
             "JINA_API_KEY_FLOSSWARE": "jina-secret",
-            "VOYAGE_API_KEY_FLOSSWARE": "voyage-secret",
+            "VOYAGEAI_API_KEY_FLOSSWARE": "voyage-secret",
         }, clear=True):
             rows = capability_plan("embeddings", ["JINA", "VOYAGEAI"])
 
@@ -722,11 +722,24 @@ class EmbeddingAdapterTests(unittest.TestCase):
         self.assertEqual(by_provider["VOYAGEAI"]["status"], "ready")
         self.assertEqual(by_provider["VOYAGEAI"]["adapter"], "voyage-embeddings")
 
+    def test_voyage_sdk_credential_alias_maps_to_voyageai(self):
+        from tools.provider_api.smoke_test import credential_accounts, discovered_provider_names
+
+        with patch.dict("os.environ", {
+            "VOYAGE_API_KEY": "voyage-sdk-secret",
+        }, clear=True):
+            self.assertIn("VOYAGEAI", discovered_provider_names())
+            accounts = credential_accounts("VOYAGEAI")
+
+        self.assertEqual(len(accounts), 1)
+        self.assertEqual(accounts[0]["credential_env"], "VOYAGE_API_KEY")
+        self.assertEqual(accounts[0]["account"], "DEFAULT")
+
     def test_embedding_plan_includes_paid_candidates_only_with_opt_in(self):
         from tools.provider_api.smoke_test import plan_capability_all_configured
 
         with patch.dict("os.environ", {
-            "VOYAGE_API_KEY_FLOSSWARE": "voyage-secret",
+            "VOYAGEAI_API_KEY_FLOSSWARE": "voyage-secret",
         }, clear=True):
             plan = plan_capability_all_configured(
                 "embeddings",
