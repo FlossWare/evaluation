@@ -1,4 +1,5 @@
 """Deterministic tests for provider smoke-test response classification."""
+import json
 import unittest
 
 from unittest.mock import patch
@@ -276,6 +277,7 @@ class HttpErrorClassificationTests(unittest.TestCase):
                 "metadata": {
                     "raw": "request rejected using secret-value",
                     "user_id": "provider-user-123",
+                    "provider_name": "Google AI Studio",
                 },
             },
             "userId": "top-level-user-456",
@@ -288,7 +290,7 @@ class HttpErrorClassificationTests(unittest.TestCase):
         self.assertNotIn("userId", sanitized)
         self.assertNotIn("secret-value", sanitized)
         self.assertIn("[REDACTED]", sanitized)
-        self.assertIn("Google", sanitized) if "Google" in sanitized else None
+        self.assertIn("Google AI Studio", sanitized)
 
     def test_error_summary_prefers_provider_diagnostic_detail(self):
         from tools.provider_api.smoke_test import error_summary
