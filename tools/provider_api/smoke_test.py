@@ -29,12 +29,14 @@ CASES: list[dict[str, str]] = [
     {"provider": "MISTRAL", "model": "mistral-small-latest", "access": "free-tier-candidate"},
     {"provider": "COHERE", "model": "command-r7b-12-2024", "access": "free-trial-candidate"},
     {"provider": "OPENROUTER", "model": "nvidia/nemotron-3.5-lightning:free", "access": "catalogue-zero-price"},
+    {"provider": "OPENROUTER", "model": "deepseek/deepseek-v4-flash-0731:free", "access": "catalogue-zero-price"},
     {"provider": "OPENROUTER", "model": "google/gemma-4-31b-it:free", "access": "catalogue-zero-price"},
     {"provider": "OPENROUTER", "model": "thinkingmachines/inkling:free", "access": "catalogue-zero-price"},
     {"provider": "OPENROUTER", "model": "thinkingmachines/inkling-small:free", "access": "catalogue-zero-price"},
     {"provider": "OPENROUTER", "model": "openrouter/free", "access": "catalogue-zero-price-router"},
     {"provider": "DEEPINFRA", "model": "deepseek-ai/DeepSeek-V4-Flash-0731", "access": "paid"},
     {"provider": "NVIDIA", "model": "openai/gpt-oss-120b", "access": "deprecated-endpoint"},
+    {"provider": "HUGGINGFACE", "model": "deepseek-ai/DeepSeek-V4-Flash-0731:deepinfra", "access": "free-monthly-credit"},
     {"provider": "HUGGINGFACE", "model": "openai/gpt-oss-120b:fastest", "access": "paid-or-account-credit"},
     {"provider": "CEREBRAS", "model": "gpt-oss-120b", "access": "promotional-or-paid"},
     {"provider": "CEREBRAS", "model": "qwen-3.8-27b", "access": "promotional-or-paid"},
@@ -338,6 +340,8 @@ def main() -> int:
                         help="Run only this exact configured model ID; combine with --provider to validate its provider.")
     parser.add_argument("--include-paid", action="store_true",
                         help="Also run paid/promotional-credit comparison candidates.")
+    parser.add_argument("--show-latest-errors", action="store_true",
+                        help="Print the latest recorded errors for Cerebras, DeepInfra, DeepSeek, and Hugging Face without making API calls.")
     parser.add_argument("--timeout", type=float, default=45.0)
     parser.add_argument("--max-output-tokens", type=int, default=128,
                         help="Maximum generated tokens per request (default: 128).")
@@ -346,6 +350,39 @@ def main() -> int:
 
     if args.timeout <= 0 or args.max_output_tokens < 1:
         parser.error("--timeout must be positive and --max-output-tokens must be at least 1")
+
+    if args.show_latest_errors:
+        if args.all_configured or args.provider or args.model or args.include_paid:
+            parser.error("--show-latest-errors cannot be combined with inference-selection options")
+        if not args.output.exists():
+            parser.error(f"No evidence file found: {args.output}")
+        wanted = {"CEREBRAS", "DEEPINFRA", "DEEPSEEK", "HUGGINGFACE"}
+        latest: dict[str, dict[str, Any]] = {}
+        with args.output.open(encoding="utf-8") as stream:
+            for line in stream:
+                try:
+                    item = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                provider = item.get("provider")
+                if provider in wanted and (item.get("error") or item.get("http_status") == 402):
+                    latest[provider] = item
+        for provider in sorted(wanted):
+            item = latest.get(provider)
+            if not item:
+                print(f"{provider:10} no recorded error")
+                continue
+            detail = error_summary(item.get("error")) or "No response body recorded"
+            category = item.get("http_error_category") or classify_http_error(
+                item.get("http_status"), item.get("error")
+            ) or "provider-error"
+            print(
+                f'{provider:10} {item.get("model_requested") or "-"} '
+                f'HTTP={item.get("http_status") or "-"} [{category}]'
+            )
+            print(f"  {detail}")
+        print("Read-only: no provider requests were made.")
+        return 0
 
     if args.all_configured and (args.provider or args.model):
         parser.error("--all-configured cannot be combined with --provider or --model")
