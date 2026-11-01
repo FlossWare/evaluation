@@ -142,6 +142,7 @@ def inventory_rows() -> list[dict[str, Any]]:
                 "implemented_capabilities": entry.get("implemented_capabilities", []),
                 "known_capabilities": entry.get("known_capabilities", []),
                 "endpoint": entry.get("endpoint"),
+                "capability_endpoints": entry.get("capability_endpoints", {}),
                 "authentication": entry.get("authentication"),
                 "status": (
                     "adapter-available" if account["credential_env"] and (entry.get("adapter") or entry.get("capability_adapters"))
@@ -200,6 +201,8 @@ def print_inventory() -> None:
             print(f'  source: {item["credential_env"]}')
         if item["endpoint"]:
             print(f'  endpoint: {item["endpoint"]}')
+        for capability, endpoint in sorted(item["capability_endpoints"].items()):
+            print(f"  {capability} endpoint: {endpoint}")
         if item["status"] not in {"ready"}:
             print(f'  status: {item["status"]}')
     print(f"\n{len(rows)} provider/account rows. Inventory only; no network requests or credential values.")
@@ -1087,6 +1090,10 @@ def main() -> int:
     if args.capability != "chat":
         if args.model or args.openrouter_free_matrix:
             parser.error("--model and --openrouter-free-matrix currently apply only to chat")
+        if args.capability != "embeddings" and (args.all_configured or args.provider or args.include_paid):
+            parser.error("Only embeddings currently has executable non-chat adapters; other capabilities are planning-only")
+        if args.all_configured and args.provider:
+            parser.error("--all-configured cannot be combined with --provider")
         if args.include_paid and not (args.all_configured or args.provider):
             parser.error("--include-paid requires --all-configured or an explicit --provider selection")
         if args.all_configured or args.provider:
