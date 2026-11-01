@@ -130,7 +130,7 @@ def inventory_rows() -> list[dict[str, Any]]:
                 "endpoint": entry.get("endpoint"),
                 "authentication": entry.get("authentication"),
                 "status": (
-                    "ready" if account["credential_env"] and entry.get("adapter")
+                    "adapter-available" if account["credential_env"] and entry.get("adapter")
                     else "skipped-no-credential" if not account["credential_env"]
                     else entry.get("status", "skipped-no-provider-adapter")
                 ),
@@ -151,6 +151,7 @@ def capability_plan(capability: str, providers: list[str] | None = None) -> list
             configured = bool(account["credential_env"])
             supported = capability in entry.get("implemented_capabilities", [])
             rows.append({
+                "observed_at": datetime.now(timezone.utc).isoformat(),
                 "provider": provider,
                 "account": account["account"],
                 "credential_env": account["credential_env"],
