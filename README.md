@@ -52,7 +52,7 @@ python3 tools/provider_api/smoke_test.py
 
 The catalogue command writes `provider-model-catalogue.json`. The smoke test writes `provider-smoke-results.jsonl`. Both are local evidence artifacts and should be reviewed before sharing.
 
-The default smoke batch is limited to catalogue-marked OpenRouter `:free` models and the Gemini models observed in the initial catalogue. The explicit paid-comparison batch includes Cerebras, DeepSeek, Groq, and a DeepInfra representative (`deepseek-ai/DeepSeek-V4-Flash-0731`) using DeepInfra's OpenAI-compatible chat endpoint. It also includes NVIDIA NIM's `openai/gpt-oss-120b` candidate via NVIDIA's OpenAI-compatible `/v1/chat/completions` API. Paid or promotional-credit comparison models require explicit opt-in:
+The non-paid candidate set includes Google Gemini 3.5 Flash-Lite, Mistral Small (free API mode), Cohere Command R7B (trial key), and catalogue-marked OpenRouter `:free` models. The explicit paid-comparison batch includes Cerebras, DeepSeek, Groq, and a DeepInfra representative (`deepseek-ai/DeepSeek-V4-Flash-0731`) using DeepInfra's OpenAI-compatible chat endpoint. Hugging Face Inference Providers is also tested through its routed chat-completions endpoint. NVIDIA NIM's previously tested `openai/gpt-oss-120b` endpoint is marked deprecated and is excluded from execution. Paid or promotional-credit comparison models require explicit opt-in:
 
 ```bash
 python3 tools/provider_api/smoke_test.py --include-paid
@@ -64,7 +64,7 @@ Run one representative candidate for every provider in a single batch:
 python3 tools/provider_api/smoke_test.py --all-configured
 ```
 
-This checks one non-paid candidate per provider where available. Providers without credentials are recorded as skipped; providers whose only configured candidate is paid or promotional-credit based are also skipped unless `--include-paid` is supplied. To explicitly include those candidates:
+This checks one non-paid candidate per provider where available, including Gemini 3.5 Flash-Lite, Mistral Small, Cohere Command R7B, and OpenRouter free candidates. Providers without credentials are recorded as skipped; providers whose only configured candidate is paid or promotional-credit based are also skipped unless `--include-paid` is supplied. Deprecated endpoints are always skipped. To explicitly include those candidates:
 
 ```bash
 python3 tools/provider_api/smoke_test.py --all-configured --include-paid
