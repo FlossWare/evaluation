@@ -34,6 +34,8 @@ Evaluation results should distinguish measured facts, evaluator judgments, confi
 
 Experimental provider-discovery and smoke-test scripts live under `tools/provider_api/`. They support the cross-project investigation documented in [FlossWare/research/provider-api-inference](https://github.com/FlossWare/research/tree/research/provider-api-inference-2026-11/provider-api-inference).
 
+This provider/model/capability work is **exploratory research for Ensemble**. Evaluation records what works and why; Ensemble will be the more formal implementation used to test and integrate those lessons. Durable production FlossWare capabilities come later. These scripts are not Ensemble runtime components, and experiments must not assume that an existing FlossWare repository is a required dependency or the predetermined winner.
+
 These scripts are **research utilities, not part of the published `evaluation-ai` package**:
 
 - `catalogue_inventory.sh` reads authenticated provider model catalogues and writes a normalized local JSON report. It does not invoke models.
