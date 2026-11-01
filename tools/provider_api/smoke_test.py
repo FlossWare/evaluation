@@ -105,6 +105,21 @@ def classify_response(text: str, finish_reason: str | None, reasoning_tokens: in
     return "complete", "response-mismatch", False
 
 
+PAID_ACCESS = {
+    "paid", "paid-or-account-credit", "paid-unless-account-credit",
+    "promotional-or-paid",
+}
+
+
+def representative_cases(include_paid: bool) -> dict[str, dict[str, str]]:
+    """Choose at most one catalogue candidate per provider, preserving catalogue order."""
+    selected: dict[str, dict[str, str]] = {}
+    for case in CASES:
+        if include_paid or case["access"] not in PAID_ACCESS:
+            selected.setdefault(case["provider"], case)
+    return selected
+
+
 def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[str, Any]:
     provider, model = case["provider"], case["model"]
     env_name = ENV_VARS[provider]
@@ -280,18 +295,10 @@ def main() -> int:
             configured = ", ".join(sorted({case["provider"] for case in matching_models}))
             parser.error(f"Model {args.model!r} is configured for {configured}, not the selected provider(s).")
 
-    paid_access = {
-        "paid", "paid-or-account-credit", "paid-unless-account-credit",
-        "promotional-or-paid",
-    }
-
     if args.all_configured:
         # One representative model per provider. Never fan out across every
         # catalogue candidate, and never opt into paid candidates implicitly.
-        selected_by_provider: dict[str, dict[str, str]] = {}
-        for case in CASES:
-            if args.include_paid or case["access"] not in paid_access:
-                selected_by_provider.setdefault(case["provider"], case)
+        selected_by_provider = representative_cases(args.include_paid)
 
         results = []
         for provider in sorted(ENV_VARS):
@@ -321,7 +328,7 @@ def main() -> int:
             case for case in CASES
             if (not args.provider or case["provider"] in args.provider)
             and (not args.model or case["model"] == args.model)
-            and (args.include_paid or case["access"] not in paid_access)
+            and (args.include_paid or case["access"] not in PAID_ACCESS)
         ]
         if not selected and args.model:
             parser.error(f"Model {args.model!r} is excluded from the default batch; use --include-paid if it is a paid/promotional candidate.")
