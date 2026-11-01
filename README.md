@@ -167,14 +167,14 @@ python3 tools/provider_api/embedding_benchmark.py --dataset /path/to/kbase-corpu
 
 The benchmark sends the actual document chunks and query text to each selected external embedding provider when `--run` is supplied. Do not include credentials, secrets, personal data, Red Hat confidential material, or content that is not approved for that provider. Only aggregate metrics, stable IDs, and request metadata are written to JSONL evidence; raw vectors and source text are not persisted by the runner. The dataset file itself remains under the caller's control.
 
-For a credible corpus benchmark, sample representative chunks from the PostgreSQL knowledge corpus, create realistic queries, and have a human review the relevant chunk IDs. Do not infer relevance from an existing embedding model's nearest-neighbor results alone; that would bake the incumbent model's bias into the gold labels. Use a stable corpus snapshot and keep document/query sets identical across providers.
+For a credible corpus benchmark, sample representative material from the private kbase corpus, create realistic queries, and have a human review the relevant chunk IDs. Do not infer relevance from an existing embedding model's nearest-neighbor results alone; that would bake the incumbent model's bias into the gold labels. Use a stable corpus snapshot and keep document/query sets identical across providers. Chunking is an experimental variable in this research phase, not an assumed shared FlossWare dependency.
 
 
 #### Exporting the private Obsidian kbase
 
 The canonical FlossWare corpus is the private, Git-backed Obsidian vault in `FlossWare/kbase`. Do not copy its content into this public repository, fixtures, or release artifacts.
 
-The local exporter reads Markdown files from a vault path and delegates segmentation to the canonical `FlossWare/chunking` implementation. It excludes hidden directories plus `.obsidian`, `.git`, and `.trash` by default. The output contains stable note/chunk IDs, relative source paths, offsets, and title metadata. It makes no provider requests and does not modify the vault.
+The local exporter reads Markdown files from a vault path and applies a deliberately simple whitespace-window baseline (`whitespace-window-baseline-v1`). This is an experimental comparison point, not a canonical tokenizer or a production chunking decision. Token counts are approximate word counts. The exporter has no dependency on another FlossWare repository. It excludes hidden directories plus `.obsidian`, `.git`, and `.trash` by default. The output contains stable note/chunk IDs, relative source paths, offsets, and title metadata. It makes no provider requests and does not modify the vault. Alternative chunkers can be evaluated independently against the same corpus and judgments.
 
 ```bash
 python3 tools/provider_api/export_kbase.py \\
