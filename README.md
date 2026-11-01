@@ -58,7 +58,7 @@ The default smoke batch is limited to catalogue-marked OpenRouter `:free` models
 python3 tools/provider_api/smoke_test.py --include-paid
 ```
 
-Select providers with repeatable `--provider` arguments. The script makes one non-streaming request per selected model, uses a small output limit, and performs no automatic retries. It captures total latency, HTTP status, request IDs, rate-limit headers, usage, finish reason, and whether the exact synthetic response was returned. It does not measure time-to-first-token; streaming belongs in the later capability suite.
+Select providers with repeatable `--provider` arguments. The script makes one non-streaming request per selected model, defaults to a 128-token output limit (configurable with `--max-output-tokens`), and performs no automatic retries. It captures total latency, HTTP status, request IDs, rate-limit headers, provider-native usage, normalized reasoning-token usage, finish reason, visible output length, and whether the exact synthetic response was returned. An empty response ending at the output limit is classified as `incomplete-reasoning` when reasoning tokens were consumed, or `incomplete-output` otherwise; it is not mislabeled as a semantic mismatch. Router-selected model IDs are recorded separately from the requested router alias. It does not measure time-to-first-token; streaming belongs in the later capability suite.
 
 A zero price in a model catalogue is not a guarantee of availability or account eligibility. Check provider billing and account terms independently. Never send real user data, proprietary code, or secrets in these tests.
 
