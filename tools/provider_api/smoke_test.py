@@ -67,6 +67,31 @@ ENV_VARS = {
     "COHERE": "COHERE_API_KEY_FLOSSWARE",
 }
 
+# Accept standard provider names and common SDK conventions.
+# The FlossWare-specific variable takes precedence when both are present.
+ENV_VAR_ALIASES = {
+    "CEREBRAS": ("CEREBRAS_API_KEY",),
+    "DEEPINFRA": ("DEEPINFRA_API_KEY",),
+    "NVIDIA": ("NVIDIA_API_KEY",),
+    "HUGGINGFACE": ("HUGGINGFACE_API_KEY", "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN"),
+    "DEEPSEEK": ("DEEPSEEK_API_KEY",),
+    "GOOGLE": ("GOOGLE_API_KEY", "GEMINI_API_KEY"),
+    "GROQ": ("GROQ_API_KEY",),
+    "OPENROUTER": ("OPENROUTER_API_KEY",),
+    "MISTRAL": ("MISTRAL_API_KEY",),
+    "COHERE": ("COHERE_API_KEY",),
+}
+
+
+def resolve_credential(provider: str) -> tuple[str, str | None]:
+    """Return credential and source variable name without exposing its value."""
+    candidates = (ENV_VARS[provider], *ENV_VAR_ALIASES.get(provider, ()))
+    for env_name in candidates:
+        value = os.environ.get(env_name, "")
+        if value.strip():
+            return value.strip(), env_name
+    return "", None
+
 
 def safe_text(value: Any, secret: str) -> str:
     text = str(value)
@@ -167,8 +192,7 @@ def representative_cases(include_paid: bool) -> dict[str, dict[str, str]]:
 
 def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[str, Any]:
     provider, model = case["provider"], case["model"]
-    env_name = ENV_VARS[provider]
-    key = os.environ.get(env_name, "")
+    key, env_name = resolve_credential(provider)
     result: dict[str, Any] = {
         "observed_at": datetime.now(timezone.utc).isoformat(),
         "provider": provider,
@@ -404,7 +428,7 @@ def main() -> int:
 
         results = []
         for provider in sorted(ENV_VARS):
-            key_configured = bool(os.environ.get(ENV_VARS[provider], ""))
+            key_configured = bool(resolve_credential(provider)[0])
             case = selected_by_provider.get(provider)
             if not key_configured:
                 results.append({
