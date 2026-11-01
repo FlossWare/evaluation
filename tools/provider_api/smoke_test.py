@@ -54,7 +54,7 @@ EMBEDDING_TEXT = (
 )
 EMBEDDING_CASES: list[dict[str, str]] = [
     {"provider": "VOYAGEAI", "model": "voyage-4-lite", "access": "paid-or-account-credit"},
-    {"provider": "JINA", "model": "jina-embeddings-v3", "access": "free-tier-candidate"},
+    {"provider": "JINA", "model": "jina-embeddings-v3", "access": "paid-or-account-credit"},
     {"provider": "COHERE", "model": "embed-v4.0", "access": "free-trial-candidate"},
     {"provider": "GOOGLE", "model": "models/gemini-embedding-001", "access": "free-tier-candidate"},
     {"provider": "OPENAI", "model": "text-embedding-3-small", "access": "paid"},
