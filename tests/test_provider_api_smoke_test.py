@@ -260,6 +260,16 @@ class BatchSelectionTests(unittest.TestCase):
         self.assertNotIn("NVIDIA", selected)
 
 
+class DefaultOutputBudgetTests(unittest.TestCase):
+    def test_default_output_budget_is_512_tokens(self):
+        import inspect
+        from tools.provider_api.smoke_test import main
+
+        source = inspect.getsource(main)
+        self.assertIn('type=int, default=512', source)
+        self.assertIn('default: 512', source)
+
+
 class ClassifyResponseTests(unittest.TestCase):
     def test_exact_response_with_stop_passes(self):
         self.assertEqual(
