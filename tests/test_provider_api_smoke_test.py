@@ -537,13 +537,13 @@ class UnifiedRunnerInventoryTests(unittest.TestCase):
                     "account": "FLOSSWARE",
                     "capability": "chat",
                     "status": "passed",
-                }) + "\\n" +
+                }) + "\n" +
                 json.dumps({
                     "provider": "OPENROUTER",
                     "account": "FLOSSWARE",
                     "capability": "embeddings",
                     "status": "skipped-no-capability-adapter",
-                }) + "\\n",
+                }) + "\n",
                 encoding="utf-8",
             )
             output = io.StringIO()
