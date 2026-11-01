@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "description": "Small, deterministic retrieval benchmark for comparing document/query embedding models. Gold relevance is binary and curated by topic.",
+  "documents": [
+    {
+      "id": "vec-01",
+      "text": "A vector index stores dense numeric embeddings for passages. At query time, the query is embedded in the same model space and nearest neighbors are ranked by cosine similarity or inner product."
+    },
+    {
+      "id": "vec-02",
+      "text": "Document and query embeddings must use compatible model versions, dimensions, and task modes. Mixing vectors from different embedding models in one index makes similarity scores meaningless."
+    },
+    {
+      "id": "vec-03",
+      "text": "Recall at K measures the fraction of known relevant documents retrieved in the first K results. It is useful when missing a relevant passage is costly."
+    },
+    {
+      "id": "vec-04",
+      "text": "Mean reciprocal rank rewards systems that place the first relevant result near the top. For each query, take the reciprocal of the rank of its first relevant result, then average."
+    },
+    {
+      "id": "dist-01",
+      "text": "A distributed service should expose a stable API contract and keep provider-specific implementation details behind adapters. Clients should not depend on a vendor's native request format."
+    },
+    {
+      "id": "dist-02",
+      "text": "Retries can amplify outages and rate limits. Use bounded retry policies with backoff and jitter only for transient failures, and never blindly retry non-idempotent operations."
+    },
+    {
+      "id": "dist-03",
+      "text": "A circuit breaker stops sending requests to a dependency after repeated failures. It allows the dependency time to recover and prevents resource exhaustion in callers."
+    },
+    {
+      "id": "dist-04",
+      "text": "Idempotency keys let a client safely repeat an operation without creating duplicate effects. The server records the key and returns the original result for a repeated request."
+    },
+    {
+      "id": "api-01",
+      "text": "API keys should be supplied through environment variables or a secret manager, never command-line arguments, source files, logs, or committed configuration."
+    },
+    {
+      "id": "api-02",
+      "text": "A useful HTTP error taxonomy distinguishes authentication failures, authorization failures, billing limits, missing resources, validation errors, and rate limiting."
+    },
+    {
+      "id": "api-03",
+      "text": "Observability should record request identifiers, status codes, latency, model identifiers, and token usage while excluding credentials and sensitive payload content."
+    },
+    {
+      "id": "api-04",
+      "text": "Rate limits may be enforced by an upstream shared pool rather than by an individual API key. Multiple credentials therefore do not necessarily provide independent quota."
+    },
+    {
+      "id": "eval-01",
+      "text": "A benchmark needs a fixed dataset, explicit relevance judgments, reproducible configuration, and metrics. A successful HTTP response only proves that an endpoint answered."
+    },
+    {
+      "id": "eval-02",
+      "text": "Normalized discounted cumulative gain evaluates ranking quality while accounting for graded relevance and the position of each relevant result."
+    },
+    {
+      "id": "eval-03",
+      "text": "A semantic retrieval evaluation should use the same passages and queries for every candidate model. Otherwise differences in results may come from the dataset rather than the model."
+    },
+    {
+      "id": "eval-04",
+      "text": "Latency, vector dimensions, storage footprint, and usage cost should be considered alongside retrieval quality when selecting an embedding model."
+    }
+  ],
+  "queries": [
+    {
+      "id": "q-01",
+      "text": "How do we ensure passage vectors and search-query vectors can be compared in one index?",
+      "relevant": [
+        "vec-01",
+        "vec-02"
+      ]
+    },
+    {
+      "id": "q-02",
+      "text": "Which metric tells us what share of relevant passages appeared within the first five search hits?",
+      "relevant": [
+        "vec-03",
+        "eval-01"
+      ]
+    },
+    {
+      "id": "q-03",
+      "text": "How is reciprocal rank used to reward a search engine for putting its first useful result near the top?",
+      "relevant": [
+        "vec-04",
+        "eval-02"
+      ]
+    },
+    {
+      "id": "q-04",
+      "text": "How should a service hide vendor-specific API formats behind a consistent interface?",
+      "relevant": [
+        "dist-01",
+        "api-02"
+      ]
+    },
+    {
+      "id": "q-05",
+      "text": "What prevents repeated transient failures from overwhelming a downstream service?",
+      "relevant": [
+        "dist-02",
+        "dist-03"
+      ]
+    },
+    {
+      "id": "q-06",
+      "text": "Where should API credentials live, and what should never appear in logs or process arguments?",
+      "relevant": [
+        "api-01",
+        "api-03"
+      ]
+    },
+    {
+      "id": "q-07",
+      "text": "Why might using several keys from one provider fail to increase the available request quota?",
+      "relevant": [
+        "api-04",
+        "dist-02"
+      ]
+    },
+    {
+      "id": "q-08",
+      "text": "What should be held constant when comparing embedding models, and what should be measured beyond retrieval relevance?",
+      "relevant": [
+        "eval-03",
+        "eval-04",
+        "eval-01"
+      ]
+    }
+  ]
+}
