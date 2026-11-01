@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from tools.provider_api.embedding_benchmark import (
+    embed_in_batches,
     embedding_batch_spec,
     extract_batch_vectors,
     load_dataset,
@@ -35,6 +36,59 @@ class EmbeddingBenchmarkTests(unittest.TestCase):
             path.write_text(json.dumps(bad), encoding="utf-8")
             with self.assertRaises(ValueError):
                 load_dataset(path)
+
+    def test_external_dataset_metadata_and_validation(self):
+        data = {
+            "name": "flossware-corpus-v1",
+            "source": "postgresql-export",
+            "version": 1,
+            "documents": [{"id": "chunk-1", "text": "A representative chunk."}],
+            "queries": [{"id": "query-1", "text": "Find a representative chunk.", "relevant": ["chunk-1"]}],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "external.json"
+            path.write_text(json.dumps(data), encoding="utf-8")
+            loaded = load_dataset(path)
+        self.assertEqual(loaded["name"], "flossware-corpus-v1")
+        self.assertEqual(loaded["source"], "postgresql-export")
+
+    def test_dataset_rejects_empty_text_and_duplicate_query_ids(self):
+        bad_datasets = [
+            {
+                "documents": [{"id": "d1", "text": "doc"}],
+                "queries": [{"id": "q1", "text": " ", "relevant": ["d1"]}],
+            },
+            {
+                "documents": [{"id": "d1", "text": "doc"}],
+                "queries": [
+                    {"id": "q1", "text": "query one", "relevant": ["d1"]},
+                    {"id": "q1", "text": "query two", "relevant": ["d1"]},
+                ],
+            },
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            for index, data in enumerate(bad_datasets):
+                path = Path(directory) / f"bad-{index}.json"
+                path.write_text(json.dumps(data), encoding="utf-8")
+                with self.assertRaises(ValueError):
+                    load_dataset(path)
+
+    def test_embedding_batches_preserve_order_and_aggregate_metadata(self):
+        with patch(
+            "tools.provider_api.embedding_benchmark.post_embeddings",
+            side_effect=[
+                ([[1.0, 0.0], [0.0, 1.0]], {"latency_seconds": 0.2, "http_status": 200}),
+                ([[-1.0, 0.0]], {"latency_seconds": 0.3, "http_status": 200}),
+            ],
+        ) as request:
+            vectors, metadata = embed_in_batches(
+                "COHERE", "embed-v4.0", "secret", ["one", "two", "three"],
+                "document", 10.0, 2,
+            )
+        self.assertEqual(vectors, [[1.0, 0.0], [0.0, 1.0], [-1.0, 0.0]])
+        self.assertEqual(metadata["request_count"], 2)
+        self.assertEqual(metadata["latency_seconds"], 0.5)
+        self.assertEqual(request.call_count, 2)
 
     def test_provider_native_document_and_query_modes(self):
         url, payload = embedding_batch_spec(
