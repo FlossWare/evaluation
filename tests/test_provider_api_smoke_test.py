@@ -3,7 +3,7 @@ import unittest
 
 from unittest.mock import patch
 
-from tools.provider_api.smoke_test import CASES, DEPRECATED_ACCESS, ENV_VARS, EXPECTED, OPENAI_COMPATIBLE, build_headers, classify_response, discovered_provider_names, plan_all_configured, provider_from_env_name, representative_cases, resolve_credential
+from tools.provider_api.smoke_test import CASES, DEFAULT_MAX_OUTPUT_TOKENS, DEPRECATED_ACCESS, ENV_VARS, EXPECTED, OPENAI_COMPATIBLE, build_headers, classify_response, discovered_provider_names, plan_all_configured, provider_from_env_name, representative_cases, resolve_credential
 
 
 
@@ -265,9 +265,10 @@ class DefaultOutputBudgetTests(unittest.TestCase):
         import inspect
         from tools.provider_api.smoke_test import main
 
+        self.assertEqual(DEFAULT_MAX_OUTPUT_TOKENS, 512)
         source = inspect.getsource(main)
-        self.assertIn('type=int, default=512', source)
-        self.assertIn('default: 512', source)
+        self.assertIn('default=DEFAULT_MAX_OUTPUT_TOKENS', source)
+        self.assertIn('default: {DEFAULT_MAX_OUTPUT_TOKENS}', source)
 
 
 class ClassifyResponseTests(unittest.TestCase):
