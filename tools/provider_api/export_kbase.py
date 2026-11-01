@@ -17,7 +17,7 @@ from typing import Any
 
 DEFAULT_CHUNKING_REPO = Path(__file__).resolve().parents[3] / "chunking"
 DEFAULT_OUTPUT = Path("kbase-corpus-export.json")
-TITLE_RE = re.compile(r"^#\\s+(.+?)\\s*#*\\s*$", re.MULTILINE)
+TITLE_RE = re.compile(r"^#\s+(.+?)\s*#*\s*$", re.MULTILINE)
 
 
 def load_chunker(chunking_repo: Path):
