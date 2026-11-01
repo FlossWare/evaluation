@@ -76,6 +76,7 @@ class AllConfiguredPlanningTests(unittest.TestCase):
             "COHERE_API_KEY": "COHERE_API_KEY",
             "OPENAI_API_KEY": "OPENAI_API_KEY",
             "ANTHROPIC_API_KEY": "ANTHROPIC_API_KEY",
+            "VOYAGEAI_API_KEY_FLOSSWARE": "VOYAGEAI_API_KEY_FLOSSWARE",
         }
         with patch.dict("os.environ", {name: "test-secret" for name in aliases}, clear=True):
             plan = plan_all_configured()
