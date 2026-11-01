@@ -21,6 +21,7 @@ from typing import Any
 
 PROMPT = "Reply with exactly this token and nothing else: FLOSSWARE_PROVIDER_SMOKE_OK"
 EXPECTED = "FLOSSWARE_PROVIDER_SMOKE_OK"
+DEFAULT_MAX_OUTPUT_TOKENS = 512
 
 # The default batch is restricted to catalogue-marked OpenRouter :free models and
 # Gemini models visible in the authenticated catalogue. Paid/promotional-credit
@@ -500,8 +501,8 @@ def main() -> int:
     parser.add_argument("--show-credential-sources", action="store_true",
                         help="Show which credential variable name is selected for each provider, without printing values or making API calls.")
     parser.add_argument("--timeout", type=float, default=45.0)
-    parser.add_argument("--max-output-tokens", type=int, default=512,
-                        help="Maximum generated tokens per request (default: 512).")
+    parser.add_argument("--max-output-tokens", type=int, default=DEFAULT_MAX_OUTPUT_TOKENS,
+                        help=f"Maximum generated tokens per request (default: {DEFAULT_MAX_OUTPUT_TOKENS}).")
     parser.add_argument("--output", type=Path, default=Path("provider-smoke-results.jsonl"))
     args = parser.parse_args()
 
