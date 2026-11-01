@@ -375,6 +375,8 @@ def classify_http_error(status: int | None, detail: str | None) -> str | None:
 
     if status == 403:
         message = str(metadata.get("raw") or error.get("message") or detail or "").lower()
+        if "insufficient account balance" in message or "insufficient balance" in message:
+            return "insufficient-account-balance"
         if (
             "only available on agentic harnesses" in message
             or "agentic harness" in message and "coding agent" in message
