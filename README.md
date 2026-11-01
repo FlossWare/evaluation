@@ -74,6 +74,12 @@ The batch never fans out across every model in a provider catalogue. It selects 
 
 Select providers with repeatable `--provider` arguments. The script makes one non-streaming request per selected model, defaults to a 128-token output limit (configurable with `--max-output-tokens`), and performs no automatic retries. It captures the requested output-token budget, total latency, HTTP status, request IDs, rate-limit headers, provider-native usage, normalized reasoning-token usage, finish reason, visible output length, and whether the exact synthetic response was returned. HTTP 402 responses are additionally classified as account-balance, account-credit/billing, or organization-subscription issues when the provider response supports that distinction; a compact sanitized error detail is printed so account restrictions are distinguishable from model/transport failures. Any response ending with `length` (OpenAI-compatible APIs) or `MAX_TOKENS` (Google) is classified as incomplete, even when partial or apparently matching text is present. It is classified as `incomplete-reasoning` when reasoning tokens were consumed, or `incomplete-output` otherwise; partial output is never mislabeled as a complete semantic mismatch. Other non-empty incorrect responses are `response-mismatch`, while empty responses without a length stop are `empty-response`. JSONL evidence is appended across invocations so successive experiments are retained. Router-selected model IDs are recorded separately from the requested router alias. It does not measure time-to-first-token; streaming belongs in the later capability suite.
 
+Inspect which credential variable name is selected for each provider without displaying values or making network requests:
+
+```bash
+python3 tools/provider_api/smoke_test.py --show-credential-sources
+```
+
 Inspect the latest recorded HTTP errors without making any network requests:
 
 ```bash
