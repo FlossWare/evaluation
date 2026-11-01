@@ -252,6 +252,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--provider", action="append", choices=sorted(ENV_VARS),
                         help="Run only this provider; repeat to select several.")
+    parser.add_argument("--all-configured", action="store_true",
+                        help="Run one representative candidate per provider; paid-only candidates require --include-paid.")
     parser.add_argument("--model",
                         help="Run only this exact configured model ID; combine with --provider to validate its provider.")
     parser.add_argument("--include-paid", action="store_true",
@@ -265,6 +267,9 @@ def main() -> int:
     if args.timeout <= 0 or args.max_output_tokens < 1:
         parser.error("--timeout must be positive and --max-output-tokens must be at least 1")
 
+    if args.all_configured and (args.provider or args.model):
+        parser.error("--all-configured cannot be combined with --provider or --model")
+
     # Validate exact model selection against the configured case catalogue first.
     # This keeps --model narrow and prevents arbitrary model IDs from reaching providers.
     if args.model:
@@ -275,20 +280,54 @@ def main() -> int:
             configured = ", ".join(sorted({case["provider"] for case in matching_models}))
             parser.error(f"Model {args.model!r} is configured for {configured}, not the selected provider(s).")
 
-    selected = [
-        case for case in CASES
-        if (not args.provider or case["provider"] in args.provider)
-        and (not args.model or case["model"] == args.model)
-        and (args.include_paid or case["access"] not in {
-            "promotional-or-paid", "paid-unless-account-credit", "paid"
-        })
-    ]
-    if not selected and args.model:
-        parser.error(f"Model {args.model!r} is excluded from the default batch; use --include-paid if it is a paid/promotional candidate.")
-    if not selected:
-        parser.error("No test cases selected.")
+    paid_access = {
+        "paid", "paid-or-account-credit", "paid-unless-account-credit",
+        "promotional-or-paid",
+    }
 
-    results = [request_case(case, args.timeout, args.max_output_tokens) for case in selected]
+    if args.all_configured:
+        # One representative model per provider. Never fan out across every
+        # catalogue candidate, and never opt into paid candidates implicitly.
+        selected_by_provider: dict[str, dict[str, str]] = {}
+        for case in CASES:
+            if args.include_paid or case["access"] not in paid_access:
+                selected_by_provider.setdefault(case["provider"], case)
+
+        results = []
+        for provider in sorted(ENV_VARS):
+            key_configured = bool(os.environ.get(ENV_VARS[provider], ""))
+            case = selected_by_provider.get(provider)
+            if not key_configured:
+                results.append({
+                    "provider": provider, "model_requested": case["model"] if case else None,
+                    "credential_configured": False, "http_status": None,
+                    "latency_seconds": None, "status": "skipped-no-credential",
+                    "retry_performed": False,
+                })
+            elif case is None:
+                paid_case = next((c for c in CASES if c["provider"] == provider), None)
+                results.append({
+                    "provider": provider,
+                    "model_requested": paid_case["model"] if paid_case else None,
+                    "credential_configured": True, "http_status": None,
+                    "latency_seconds": None, "status": "skipped-paid-opt-in-required",
+                    "access_classification": paid_case["access"] if paid_case else None,
+                    "retry_performed": False,
+                })
+            else:
+                results.append(request_case(case, args.timeout, args.max_output_tokens))
+    else:
+        selected = [
+            case for case in CASES
+            if (not args.provider or case["provider"] in args.provider)
+            and (not args.model or case["model"] == args.model)
+            and (args.include_paid or case["access"] not in paid_access)
+        ]
+        if not selected and args.model:
+            parser.error(f"Model {args.model!r} is excluded from the default batch; use --include-paid if it is a paid/promotional candidate.")
+        if not selected:
+            parser.error("No test cases selected.")
+        results = [request_case(case, args.timeout, args.max_output_tokens) for case in selected]
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("a", encoding="utf-8") as stream:
         for item in results:
@@ -301,7 +340,7 @@ def main() -> int:
         print(f'{item["provider"]:10} {item["model_requested"]:46} {status:24} HTTP={http} latency={latency}s')
 
     passed = sum(item["status"] == "passed" for item in results)
-    skipped = sum(item["status"] == "skipped-no-credential" for item in results)
+    skipped = sum(item["status"].startswith("skipped-") for item in results)
     failed = len(results) - passed - skipped
     print(f"\nSummary: {passed} passed, {failed} failed, {skipped} skipped; {len(results)} selected.")
     print(f"Evidence: {args.output}")
