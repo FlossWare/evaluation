@@ -558,5 +558,162 @@ class UnifiedRunnerInventoryTests(unittest.TestCase):
 
 
 
+class EmbeddingAdapterTests(unittest.TestCase):
+    def test_provider_native_embedding_request_specs(self):
+        from tools.provider_api.smoke_test import embedding_request_spec
+
+        cases = {
+            "GOOGLE": "models/gemini-embedding-001",
+            "COHERE": "embed-v4.0",
+            "VOYAGEAI": "voyage-4-lite",
+            "JINA": "jina-embeddings-v3",
+            "OPENAI": "text-embedding-3-small",
+            "MISTRAL": "mistral-embed",
+        }
+        for provider, model in cases.items():
+            with self.subTest(provider=provider):
+                url, payload = embedding_request_spec({
+                    "provider": provider,
+                    "model": model,
+                    "access": "test",
+                })
+                self.assertTrue(url.startswith("https://"))
+                self.assertEqual(payload["model"], model)
+                self.assertTrue(
+                    payload.get("content") or payload.get("texts") or payload.get("input")
+                )
+        self.assertEqual(
+            embedding_request_spec({
+                "provider": "JINA", "model": "jina-embeddings-v3", "access": "test"
+            })[1]["task"],
+            "retrieval.passage",
+        )
+        self.assertEqual(
+            embedding_request_spec({
+                "provider": "COHERE", "model": "embed-v4.0", "access": "test"
+            })[1]["input_type"],
+            "search_document",
+        )
+
+    def test_embedding_response_envelopes_normalize(self):
+        from tools.provider_api.smoke_test import extract_embedding_vectors
+
+        fixtures = {
+            "OPENAI": {"data": [{"embedding": [0.1, 0.2, 0.3]}]},
+            "MISTRAL": {"data": [{"embedding": [0.1, 0.2, 0.3]}]},
+            "VOYAGEAI": {"data": [{"embedding": [0.1, 0.2, 0.3]}]},
+            "JINA": {"data": [{"embedding": [0.1, 0.2, 0.3]}]},
+            "COHERE": {"embeddings": {"float": [[0.1, 0.2, 0.3]]}},
+            "GOOGLE": {"embedding": {"values": [0.1, 0.2, 0.3]}},
+        }
+        for provider, fixture in fixtures.items():
+            with self.subTest(provider=provider):
+                self.assertEqual(
+                    extract_embedding_vectors(provider, fixture),
+                    [[0.1, 0.2, 0.3]],
+                )
+
+    def test_embedding_response_rejects_invalid_vectors(self):
+        from tools.provider_api.smoke_test import extract_embedding_vectors
+
+        invalid = [
+            {"data": [{"embedding": []}]},
+            {"data": [{"embedding": [0.0, 0.0]}]},
+            {"data": [{"embedding": [0.1, float("nan")]}]},
+            {"data": [{"embedding": [0.1, "bad"]}]},
+            {"data": [{"embedding": [0.1, 0.2]}, {"embedding": [0.1]}]},
+        ]
+        for fixture in invalid:
+            with self.subTest(fixture=fixture):
+                with self.assertRaises(ValueError):
+                    extract_embedding_vectors("OPENAI", fixture)
+
+    def test_embedding_request_records_dimensions_without_persisting_vectors(self):
+        import json
+        from tools.provider_api.smoke_test import request_embedding_case
+
+        class FakeResponse:
+            status = 200
+            headers = {"x-request-id": "embedding-test-id"}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return json.dumps({
+                    "model": "text-embedding-3-small",
+                    "data": [{"embedding": [0.25, 0.5, 0.75]}],
+                    "usage": {"total_tokens": 8},
+                }).encode("utf-8")
+
+        case = {
+            "provider": "OPENAI",
+            "model": "text-embedding-3-small",
+            "access": "paid",
+        }
+        with patch.dict("os.environ", {
+            "OPENAI_API_KEY_FLOSSWARE": "test-secret",
+        }, clear=True), patch(
+            "tools.provider_api.smoke_test.urllib.request.urlopen",
+            return_value=FakeResponse(),
+        ) as urlopen:
+            result = request_embedding_case(
+                case,
+                timeout=1,
+                credential_env="OPENAI_API_KEY_FLOSSWARE",
+                account="FLOSSWARE",
+            )
+
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(result["account"], "FLOSSWARE")
+        self.assertEqual(result["capability"], "embeddings")
+        self.assertEqual(result["embedding_count"], 1)
+        self.assertEqual(result["embedding_dimensions"], 3)
+        self.assertGreater(result["embedding_norm"], 0)
+        self.assertNotIn("embedding", result)
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.full_url, "https://api.openai.com/v1/embeddings")
+        self.assertEqual(request.get_header("Authorization"), "Bearer test-secret")
+
+    def test_embedding_plan_keeps_paid_candidates_opt_in_only(self):
+        from tools.provider_api.smoke_test import plan_capability_all_configured
+
+        env = {
+            "VOYAGE_API_KEY_FLOSSWARE": "voyage-secret",
+            "JINA_API_KEY_FLOSSWARE": "jina-secret",
+            "OPENAI_API_KEY_FLOSSWARE": "openai-secret",
+        }
+        with patch.dict("os.environ", env, clear=True):
+            plan = plan_capability_all_configured(
+                "embeddings",
+                include_paid=False,
+                providers=["VOYAGEAI", "JINA", "OPENAI"],
+            )
+
+        statuses = {item["provider"]: item["status"] for item in plan}
+        self.assertEqual(statuses["JINA"], "ready")
+        self.assertEqual(statuses["VOYAGEAI"], "skipped-paid-opt-in-required")
+        self.assertEqual(statuses["OPENAI"], "skipped-paid-opt-in-required")
+
+    def test_embedding_plan_includes_paid_candidates_only_with_opt_in(self):
+        from tools.provider_api.smoke_test import plan_capability_all_configured
+
+        with patch.dict("os.environ", {
+            "VOYAGE_API_KEY_FLOSSWARE": "voyage-secret",
+        }, clear=True):
+            plan = plan_capability_all_configured(
+                "embeddings",
+                include_paid=True,
+                providers=["VOYAGEAI"],
+            )
+
+        self.assertEqual(len(plan), 1)
+        self.assertEqual(plan[0]["status"], "ready")
+
+
+
 if __name__ == "__main__":
     unittest.main()
