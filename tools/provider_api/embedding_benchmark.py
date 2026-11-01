@@ -17,16 +17,26 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from smoke_test import (
-    EMBEDDING_CASES,
-    PAID_ACCESS,
-    build_headers,
-    classify_http_error,
-    credential_accounts,
-    credential_account_from_env_name,
-    error_summary,
-    sanitize_error_detail,
-)
+try:
+    from .smoke_test import (
+        EMBEDDING_CASES,
+        PAID_ACCESS,
+        build_headers,
+        classify_http_error,
+        credential_accounts,
+        error_summary,
+        sanitize_error_detail,
+    )
+except ImportError:
+    from smoke_test import (
+        EMBEDDING_CASES,
+        PAID_ACCESS,
+        build_headers,
+        classify_http_error,
+        credential_accounts,
+        error_summary,
+        sanitize_error_detail,
+    )
 
 HERE = Path(__file__).resolve().parent
 DATASET_PATH = HERE / "embedding-benchmark.json"
@@ -231,8 +241,9 @@ def post_embeddings(
     except urllib.error.HTTPError as exc:
         detail = sanitize_error_detail(exc.read().decode("utf-8", errors="replace"), key)
         raise ProviderRequestError(exc.code, detail, time.monotonic() - started) from exc
-    except urllib.error.URLError as exc:
-        raise ProviderRequestError(None, str(exc.reason), time.monotonic() - started) from exc
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        reason = getattr(exc, "reason", exc)
+        raise ProviderRequestError(None, str(reason), time.monotonic() - started) from exc
 
 
 class ProviderRequestError(RuntimeError):
