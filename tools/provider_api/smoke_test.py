@@ -100,7 +100,7 @@ def provider_from_env_name(env_name: str) -> str | None:
     }
     if env_name in explicit:
         return explicit[env_name]
-    match = re.fullmatch(r"([A-Z][A-Z0-9_]*)_(?:API_KEY(?:_FLOSSWARE)?|API_TOKEN)", env_name)
+    match = re.fullmatch(r"([A-Z][A-Z0-9_]*)_(?:API_KEY(?:_FLOSSWARE)?|API_TOKEN|AUTH_TOKEN)", env_name)
     if not match:
         return None
     provider = match.group(1)
@@ -571,6 +571,7 @@ def main() -> int:
                 "skipped-paid-opt-in-required",
                 "skipped-deprecated-endpoint",
                 "skipped-no-chat-candidate",
+                "skipped-no-provider-adapter",
             )
         }
         print(f"\nProvider inventory: {len(results)} providers examined.")
