@@ -366,6 +366,8 @@ def main() -> int:
                         help="Also run paid/promotional-credit comparison candidates.")
     parser.add_argument("--show-latest-errors", action="store_true",
                         help="Print the latest recorded errors for Cerebras, DeepInfra, DeepSeek, and Hugging Face without making API calls.")
+    parser.add_argument("--show-credential-sources", action="store_true",
+                        help="Show which credential variable name is selected for each provider, without printing values or making API calls.")
     parser.add_argument("--timeout", type=float, default=45.0)
     parser.add_argument("--max-output-tokens", type=int, default=128,
                         help="Maximum generated tokens per request (default: 128).")
@@ -375,8 +377,17 @@ def main() -> int:
     if args.timeout <= 0 or args.max_output_tokens < 1:
         parser.error("--timeout must be positive and --max-output-tokens must be at least 1")
 
+    if args.show_credential_sources:
+        if args.show_latest_errors or args.all_configured or args.provider or args.model or args.include_paid:
+            parser.error("--show-credential-sources cannot be combined with other selection options")
+        for provider in sorted(ENV_VARS):
+            _, env_name = resolve_credential(provider)
+            print(f"{provider:10} {env_name or 'not configured'}")
+        print("Read-only: no credential values were displayed and no provider requests were made.")
+        return 0
+
     if args.show_latest_errors:
-        if args.all_configured or args.provider or args.model or args.include_paid:
+        if args.all_configured or args.provider or args.model or args.include_paid or args.show_credential_sources:
             parser.error("--show-latest-errors cannot be combined with inference-selection options")
         if not args.output.exists():
             parser.error(f"No evidence file found: {args.output}")
