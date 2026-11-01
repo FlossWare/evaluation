@@ -135,6 +135,26 @@ class AllConfiguredPlanningTests(unittest.TestCase):
             plan = [p for p in plan_all_configured() if p["provider"] == "CEREBRAS"]
             self.assertEqual([p["account"] for p in plan], ["FLOSSWARE", "HOTMAIL", "NCRR"])
             self.assertTrue(all(p["status"] == "skipped-paid-opt-in-required" for p in plan))
+
+        with patch.dict("os.environ", {
+            "THINKMACHINES_API_KEY_FLOSSWARE": "fw-secret",
+            "THINKMACHINES_API_KEY_HOTMAIL": "hotmail-secret",
+            "THINKINGMACHINES_API_KEY_NCRR": "ncrr-secret",
+        }, clear=True):
+            self.assertEqual(
+                provider_from_env_name("THINKINGMACHINES_API_KEY_NCRR"),
+                "THINKMACHINES",
+            )
+            aliases = credential_accounts("THINKMACHINES")
+            self.assertEqual(
+                [(a["account"], a["credential_env"]) for a in aliases],
+                [
+                    ("FLOSSWARE", "THINKMACHINES_API_KEY_FLOSSWARE"),
+                    ("HOTMAIL", "THINKMACHINES_API_KEY_HOTMAIL"),
+                    ("NCRR", "THINKINGMACHINES_API_KEY_NCRR"),
+                ],
+            )
+
         self.assertIsNone(provider_from_env_name("GITHUB_TOKEN"))
         self.assertIsNone(provider_from_env_name("AWS_SESSION_TOKEN"))
         self.assertIsNone(provider_from_env_name("GROQ_ORG_ID_FLOSSWARE"))
