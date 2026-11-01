@@ -155,9 +155,20 @@ if status == "200":
         parse_error = type(exc).__name__
 
 # Remove obvious non-chat-only entries from the initial general-inference shortlist.
-non_chat = re.compile(r"(embed|rerank|whisper|transcri|text-to-speech|tts|moderation|prompt.guard)", re.I)
+non_chat = re.compile(
+    r"(embed|rerank|whisper|transcri|text-to-speech|tts|moderation|prompt.guard|"
+    r"lyria|music-generation|image-generation|text-to-image|video-generation|"
+    r"speech-generation|voice-generation)",
+    re.I,
+)
 
 def chat_candidate(model):
+    # Task-specific models can expose generic generation endpoints without being
+    # conversational models. Exclude known non-chat families before endpoint checks.
+    identity = " ".join(str(model.get(key) or "") for key in ("id", "display_name"))
+    if non_chat.search(identity):
+        return False
+
     if provider == "GOOGLE":
         methods = model.get("generation_methods") or []
         return "generateContent" in methods
