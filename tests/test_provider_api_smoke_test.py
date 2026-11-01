@@ -704,9 +704,15 @@ class EmbeddingAdapterTests(unittest.TestCase):
             )
 
         statuses = {item["provider"]: item["status"] for item in plan}
-        self.assertEqual(statuses["JINA"], "ready")
+        self.assertEqual(statuses["JINA"], "skipped-paid-opt-in-required")
         self.assertEqual(statuses["VOYAGEAI"], "skipped-paid-opt-in-required")
         self.assertEqual(statuses["OPENAI"], "skipped-paid-opt-in-required")
+
+    def test_jina_embedding_candidate_requires_paid_opt_in(self):
+        from tools.provider_api.smoke_test import EMBEDDING_CASES
+
+        jina = next(item for item in EMBEDDING_CASES if item["provider"] == "JINA")
+        self.assertEqual(jina["access"], "paid-or-account-credit")
 
     def test_embedding_capability_plan_recognizes_embedding_only_providers(self):
         from tools.provider_api.smoke_test import capability_plan
