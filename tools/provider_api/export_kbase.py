@@ -122,7 +122,7 @@ def main() -> int:
         parser.error("no Markdown chunks found; check the vault path and exclusions")
     output = args.output.expanduser()
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    output.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Exported {len(data['documents'])} chunks from {len({item['metadata']['document_id'] for item in data['documents']})} notes")
     print(f"Local corpus export: {output}")
     print("No provider requests were made. Queries and relevance judgments are not included.")
