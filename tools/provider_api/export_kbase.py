@@ -20,7 +20,7 @@ DEFAULT_OUTPUT = Path("kbase-corpus-export.json")
 TITLE_RE = re.compile(r"^#\s+(.+?)\s*#*\s*$", re.MULTILINE)
 
 
-def load_chunker(chunking_repo: Path):
+def load_chunker(chunking_repo: Path) -> Any:
     """Load TokenChunker from a local FlossWare/chunking checkout."""
     package_parent = chunking_repo.expanduser().resolve().parent
     if not (package_parent / "chunking" / "chunker.py").is_file():
@@ -56,7 +56,10 @@ def export_vault(
     excluded = set(exclude_dirs)
     documents: list[dict[str, Any]] = []
     for source in sorted(root.rglob("*.md")):
-        if source.is_symlink() or any(part in excluded or part.startswith(".") for part in source.relative_to(root).parts):
+        relative_parts = source.relative_to(root).parts
+        if source.is_symlink() or any(
+            part in excluded or part.startswith(".") for part in relative_parts
+        ):
             continue
         relative = source.relative_to(root)
         content = source.read_text(encoding="utf-8")
@@ -98,12 +101,24 @@ def export_vault(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--vault", type=Path, required=True, help="Path to the local private kbase Obsidian vault.")
-    parser.add_argument("--chunking-repo", type=Path, default=DEFAULT_CHUNKING_REPO, help="Local FlossWare/chunking checkout.")
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Local output JSON; keep private corpus exports out of Git.")
+    parser.add_argument(
+        "--vault", type=Path, required=True,
+        help="Path to the local private kbase Obsidian vault.",
+    )
+    parser.add_argument(
+        "--chunking-repo", type=Path, default=DEFAULT_CHUNKING_REPO,
+        help="Local FlossWare/chunking checkout.",
+    )
+    parser.add_argument(
+        "--output", type=Path, default=DEFAULT_OUTPUT,
+        help="Local output JSON; keep corpus exports out of Git.",
+    )
     parser.add_argument("--max-tokens", type=int, default=512)
     parser.add_argument("--overlap", type=int, default=50)
-    parser.add_argument("--exclude-dir", action="append", default=[], help="Additional directory name to exclude; may be repeated.")
+    parser.add_argument(
+        "--exclude-dir", action="append", default=[],
+        help="Additional directory name to exclude; may be repeated.",
+    )
     args = parser.parse_args()
     if args.max_tokens < 1 or args.overlap < 0 or args.overlap >= args.max_tokens:
         parser.error("require max-tokens > 0 and 0 <= overlap < max-tokens")
@@ -123,7 +138,8 @@ def main() -> int:
     output = args.output.expanduser()
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"Exported {len(data['documents'])} chunks from {len({item['metadata']['document_id'] for item in data['documents']})} notes")
+    note_count = len({item["metadata"]["document_id"] for item in data["documents"]})
+    print(f"Exported {len(data['documents'])} chunks from {note_count} notes")
     print(f"Local corpus export: {output}")
     print("No provider requests were made. Queries and relevance judgments are not included.")
     return 0
