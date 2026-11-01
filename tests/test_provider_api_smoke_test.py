@@ -701,6 +701,21 @@ class EmbeddingAdapterTests(unittest.TestCase):
         self.assertEqual(statuses["VOYAGEAI"], "skipped-paid-opt-in-required")
         self.assertEqual(statuses["OPENAI"], "skipped-paid-opt-in-required")
 
+    def test_embedding_capability_plan_recognizes_embedding_only_providers(self):
+        from tools.provider_api.smoke_test import capability_plan
+
+        with patch.dict("os.environ", {
+            "JINA_API_KEY_FLOSSWARE": "jina-secret",
+            "VOYAGE_API_KEY_FLOSSWARE": "voyage-secret",
+        }, clear=True):
+            rows = capability_plan("embeddings", ["JINA", "VOYAGEAI"])
+
+        by_provider = {item["provider"]: item for item in rows}
+        self.assertEqual(by_provider["JINA"]["status"], "ready")
+        self.assertEqual(by_provider["JINA"]["adapter"], "jina-embeddings")
+        self.assertEqual(by_provider["VOYAGEAI"]["status"], "ready")
+        self.assertEqual(by_provider["VOYAGEAI"]["adapter"], "voyage-embeddings")
+
     def test_embedding_plan_includes_paid_candidates_only_with_opt_in(self):
         from tools.provider_api.smoke_test import plan_capability_all_configured
 
