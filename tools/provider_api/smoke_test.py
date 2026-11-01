@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import sys
@@ -45,6 +46,19 @@ CASES: list[dict[str, str]] = [
     {"provider": "DEEPSEEK", "model": "deepseek-flash", "access": "paid-unless-account-credit"},
     {"provider": "GROQ", "model": "openai/gpt-oss-120b", "access": "paid"},
     {"provider": "OPENAI", "model": "gpt-4.1-mini", "access": "paid"},
+]
+
+
+EMBEDDING_TEXT = (
+    "FlossWare evaluates embedding APIs for semantic retrieval and vector search."
+)
+EMBEDDING_CASES: list[dict[str, str]] = [
+    {"provider": "VOYAGEAI", "model": "voyage-4-lite", "access": "paid-or-account-credit"},
+    {"provider": "JINA", "model": "jina-embeddings-v3", "access": "free-tier-candidate"},
+    {"provider": "COHERE", "model": "embed-v4.0", "access": "free-trial-candidate"},
+    {"provider": "GOOGLE", "model": "models/gemini-embedding-001", "access": "free-tier-candidate"},
+    {"provider": "OPENAI", "model": "text-embedding-3-small", "access": "paid"},
+    {"provider": "MISTRAL", "model": "mistral-embed", "access": "paid"},
 ]
 
 OPENAI_COMPATIBLE = {
@@ -523,6 +537,283 @@ def plan_all_configured(include_paid: bool = False) -> list[dict[str, Any]]:
             plan.append(item)
     return plan
 
+
+
+def embedding_request_spec(case: dict[str, str]) -> tuple[str, dict[str, Any]]:
+    """Build a provider-native embedding request without performing network I/O."""
+    provider = case["provider"]
+    model = case["model"]
+    if provider == "GOOGLE":
+        return (
+            f"https://generativelanguage.googleapis.com/v1beta/{model}:embedContent",
+            {
+                "content": {"parts": [{"text": EMBEDDING_TEXT}]},
+                "taskType": "RETRIEVAL_DOCUMENT",
+            },
+        )
+    if provider == "COHERE":
+        return (
+            "https://api.cohere.com/v2/embed",
+            {
+                "model": model,
+                "texts": [EMBEDDING_TEXT],
+                "input_type": "search_document",
+                "embedding_types": ["float"],
+            },
+        )
+    if provider == "VOYAGEAI":
+        return (
+            "https://api.voyageai.com/v1/embeddings",
+            {
+                "model": model,
+                "input": [EMBEDDING_TEXT],
+                "input_type": "document",
+                "output_dtype": "float",
+            },
+        )
+    if provider == "JINA":
+        return (
+            "https://api.jina.ai/v1/embeddings",
+            {
+                "model": model,
+                "input": [EMBEDDING_TEXT],
+                "task": "retrieval.passage",
+                "embedding_type": "float",
+                "normalized": True,
+            },
+        )
+    if provider in {"OPENAI", "MISTRAL"}:
+        endpoint = (
+            "https://api.openai.com/v1/embeddings"
+            if provider == "OPENAI"
+            else "https://api.mistral.ai/v1/embeddings"
+        )
+        return (
+            endpoint,
+            {"model": model, "input": [EMBEDDING_TEXT], "encoding_format": "float"},
+        )
+    raise ValueError(f"No embedding request adapter for provider: {provider}")
+
+
+def extract_embedding_vectors(provider: str, data: dict[str, Any]) -> list[list[float]]:
+    """Normalize supported provider embedding response envelopes to float vectors."""
+    if provider == "GOOGLE":
+        values = (data.get("embedding") or {}).get("values")
+        raw_vectors = [values] if values is not None else []
+    elif provider == "COHERE":
+        raw_vectors = (data.get("embeddings") or {}).get("float") or []
+    else:
+        raw_vectors = [
+            item.get("embedding")
+            for item in data.get("data", [])
+            if isinstance(item, dict) and item.get("embedding") is not None
+        ]
+
+    vectors: list[list[float]] = []
+    for vector in raw_vectors:
+        if not isinstance(vector, list) or not vector:
+            raise ValueError("Embedding response contained an empty or invalid vector")
+        normalized: list[float] = []
+        for value in vector:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError("Embedding vector contained a non-numeric value")
+            number = float(value)
+            if not math.isfinite(number):
+                raise ValueError("Embedding vector contained a non-finite value")
+            normalized.append(number)
+        vectors.append(normalized)
+    if not vectors:
+        raise ValueError("Embedding response did not contain any vectors")
+    dimensions = {len(vector) for vector in vectors}
+    if len(dimensions) != 1:
+        raise ValueError("Embedding response contained inconsistent vector dimensions")
+    if not any(value != 0.0 for value in vectors[0]):
+        raise ValueError("Embedding response contained an all-zero vector")
+    return vectors
+
+
+def request_embedding_case(
+    case: dict[str, str],
+    timeout: float,
+    credential_env: str | None = None,
+    account: str = "DEFAULT",
+) -> dict[str, Any]:
+    """Run one bounded embedding smoke request and retain only vector metadata."""
+    provider, model = case["provider"], case["model"]
+    if credential_env:
+        key = os.environ.get(credential_env, "").strip()
+        env_name = credential_env
+    else:
+        key, env_name = resolve_credential(provider)
+        if env_name:
+            account = credential_account_from_env_name(env_name)
+
+    result: dict[str, Any] = {
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "provider": provider,
+        "capability": "embeddings",
+        "account": account,
+        "model_requested": model,
+        "access_classification": case["access"],
+        "credential_env": env_name,
+        "credential_configured": bool(key),
+        "http_status": None,
+        "latency_seconds": None,
+        "provider_request_id": None,
+        "model_returned": None,
+        "embedding_count": 0,
+        "embedding_dimensions": None,
+        "embedding_norm": None,
+        "usage": None,
+        "error": None,
+        "retry_performed": False,
+    }
+    if not key:
+        result["status"] = "skipped-no-credential"
+        return result
+
+    url, payload = embedding_request_spec(case)
+    headers = build_headers(provider, key)
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    started = time.monotonic()
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            body_bytes = response.read()
+            result["http_status"] = response.status
+            result["rate_limit_headers"] = {
+                name.lower(): value
+                for name, value in response.headers.items()
+                if "ratelimit" in name.lower() or name.lower() in {
+                    "retry-after", "x-request-id", "request-id", "cf-ray"
+                }
+            }
+            result["provider_request_id"] = (
+                response.headers.get("x-request-id")
+                or response.headers.get("request-id")
+                or response.headers.get("cf-ray")
+            )
+        result["latency_seconds"] = round(time.monotonic() - started, 3)
+        data = json.loads(body_bytes.decode("utf-8"))
+        vectors = extract_embedding_vectors(provider, data)
+        vector = vectors[0]
+        result["model_returned"] = data.get("model") or data.get("modelVersion") or model
+        result["embedding_count"] = len(vectors)
+        result["embedding_dimensions"] = len(vector)
+        result["embedding_norm"] = round(math.sqrt(sum(value * value for value in vector)), 8)
+        result["usage"] = data.get("usage") or data.get("usageMetadata")
+        result["status"] = "passed"
+    except urllib.error.HTTPError as exc:
+        result["latency_seconds"] = round(time.monotonic() - started, 3)
+        result["http_status"] = exc.code
+        result["provider_request_id"] = (
+            exc.headers.get("x-request-id")
+            or exc.headers.get("request-id")
+            or exc.headers.get("cf-ray")
+        )
+        result["rate_limit_headers"] = {
+            name.lower(): value
+            for name, value in exc.headers.items()
+            if "ratelimit" in name.lower() or name.lower() in {
+                "retry-after", "x-request-id", "request-id", "cf-ray"
+            }
+        }
+        try:
+            detail = exc.read().decode("utf-8", errors="replace")
+        except Exception:
+            detail = str(exc)
+        result["error"] = sanitize_error_detail(detail, key)
+        result["http_error_category"] = classify_http_error(exc.code, result["error"])
+        result["status"] = "http-error"
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        result["latency_seconds"] = round(time.monotonic() - started, 3)
+        result["error"] = safe_text(exc, key)
+        result["status"] = "transport-error"
+    except (json.JSONDecodeError, UnicodeDecodeError, KeyError, TypeError, ValueError) as exc:
+        result["latency_seconds"] = round(time.monotonic() - started, 3)
+        result["error"] = safe_text(
+            f"Embedding response validation failed: {type(exc).__name__}: {exc}", key
+        )
+        result["status"] = "response-parse-error"
+    finally:
+        key = ""
+    return result
+
+
+def plan_capability_all_configured(
+    capability: str,
+    include_paid: bool = False,
+    providers: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Plan each account for a capability, selecting at most one candidate per provider."""
+    candidates = EMBEDDING_CASES if capability == "embeddings" else []
+    selected_providers = sorted(set(providers or discovered_provider_names()))
+    results: list[dict[str, Any]] = []
+    for provider in selected_providers:
+        entry = provider_catalogue_entry(provider)
+        case = next((item for item in candidates if item["provider"] == provider), None)
+        accounts = credential_accounts(provider) or [{
+            "account": "DEFAULT", "credential_env": None, "credential": ""
+        }]
+        for account in accounts:
+            env_name = account["credential_env"]
+            row: dict[str, Any] = {
+                "observed_at": datetime.now(timezone.utc).isoformat(),
+                "provider": provider,
+                "account": account["account"],
+                "credential_env": env_name,
+                "credential_configured": bool(env_name),
+                "capability": capability,
+                "model_requested": case["model"] if case else None,
+                "access_classification": case["access"] if case else None,
+                "adapter": entry.get("capability_adapters", {}).get(capability),
+                "http_status": None,
+                "latency_seconds": None,
+                "retry_performed": False,
+            }
+            if not env_name:
+                row["status"] = "skipped-no-credential"
+            elif not case:
+                row["status"] = (
+                    "skipped-no-provider-adapter"
+                    if capability not in entry.get("implemented_capabilities", [])
+                    else "skipped-no-model-candidate"
+                )
+            elif case["access"] in PAID_ACCESS and not include_paid:
+                row["status"] = "skipped-paid-opt-in-required"
+            else:
+                row["status"] = "ready"
+            results.append(row)
+    return results
+
+
+def execute_embedding_selection(
+    capability: str,
+    timeout: float,
+    include_paid: bool,
+    providers: list[str] | None,
+) -> list[dict[str, Any]]:
+    """Execute eligible embedding cases while preserving account boundaries."""
+    results: list[dict[str, Any]] = []
+    for item in plan_capability_all_configured(capability, include_paid, providers):
+        if item["status"] == "ready":
+            case = next(
+                candidate for candidate in EMBEDDING_CASES
+                if candidate["provider"] == item["provider"]
+            )
+            results.append(request_embedding_case(
+                case,
+                timeout,
+                credential_env=item.get("credential_env"),
+                account=item.get("account", "DEFAULT"),
+            ))
+        else:
+            results.append(item)
+    return results
 
 def request_case(
     case: dict[str, str],
