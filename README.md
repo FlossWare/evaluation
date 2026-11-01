@@ -70,7 +70,32 @@ python3 tools/provider_api/smoke_test.py --capability embeddings
 python3 tools/provider_api/smoke_test.py --report
 ```
 
-Capability families are declared in the provider catalogue: `chat`, `embeddings`, `reranking`, `image-generation`, and `document-processing`. Only adapters listed under `implemented_capabilities` execute network requests. Other capability selections append explicit `skipped-no-capability-adapter` planning records, not false inference failures. Chat is the only implemented capability family in this initial registry. Adding an adapter means declaring its endpoint/authentication/operations in the catalogue, implementing its request/response contract, and adding deterministic tests. One runner does not mean forcing incompatible APIs through a chat-completions payload.
+Capability families are declared in the provider catalogue: `chat`, `embeddings`, `reranking`, `image-generation`, and `document-processing`. Only adapters listed under `implemented_capabilities` execute network requests. Unsupported capability selections append explicit `skipped-no-capability-adapter` planning records, not false inference failures. Chat and text embeddings have initial adapters; reranking, image generation, and document processing remain planned. Adding an adapter means declaring its endpoint/authentication/operations in the catalogue, implementing its request/response contract, and adding deterministic tests. One runner does not mean forcing incompatible APIs through a chat-completions payload.
+
+#### Embedding adapter evaluation
+
+The initial embedding adapters use native provider request/response contracts for Voyage AI, Jina, Cohere, Google Gemini, OpenAI, and Mistral. The bounded smoke request embeds one synthetic FlossWare sentence and validates that the response contains a finite, non-zero vector. Evidence stores model, dimensions, norm, latency, usage, status, and request ID; it deliberately does not persist vector contents.
+
+```bash
+# Plan capability coverage only. No provider requests are made.
+python3 tools/provider_api/smoke_test.py --capability embeddings
+
+# Execute only candidates marked free-tier/trial, across configured accounts.
+python3 tools/provider_api/smoke_test.py --all-configured --capability embeddings
+
+# Execute one provider's free/trial candidate across its configured accounts.
+python3 tools/provider_api/smoke_test.py --capability embeddings --provider JINA
+
+# Explicitly opt into paid/account-credit candidates for one provider.
+python3 tools/provider_api/smoke_test.py --capability embeddings --provider VOYAGEAI --include-paid
+
+# Explicitly opt into all configured embedding candidates, including paid candidates.
+python3 tools/provider_api/smoke_test.py --all-configured --capability embeddings --include-paid
+```
+
+Access labels are conservative candidate classifications, not a promise that a particular account is free or has quota. The default execution excludes `paid` and `paid-or-account-credit` candidates. The explicit `--include-paid` flag may incur charges. There are no retries. The adapter validates vector shape and numeric values without retaining raw embeddings.
+
+Provider API references: [Voyage embeddings](https://docs.voyageai.com/docs/embeddings), [Jina embeddings](https://docs.jina.ai/), [Cohere Embed v2](https://docs.cohere.com/reference/embed), [Google embedContent](https://ai.google.dev/api/embeddings), [OpenAI embeddings](https://developers.openai.com/api/reference/resources/embeddings/methods/create), [Mistral embeddings](https://docs.mistral.ai/api/#tag/embeddings).
 
 The non-paid candidate set includes Google Gemini 3.5 Flash-Lite, Mistral Small (free API mode), Cohere Command R7B (trial key), catalogue-marked OpenRouter `:free` models (including DeepSeek V4 Flash 0731), and the DeepInfra-hosted DeepSeek V4 Flash 0731 route through Hugging Face's monthly included credits. The explicit paid-comparison batch includes Cerebras, DeepSeek, Groq, and a DeepInfra representative (`deepseek-ai/DeepSeek-V4-Flash-0731`) using DeepInfra's OpenAI-compatible chat endpoint. Hugging Face Inference Providers is also tested through its routed chat-completions endpoint. NVIDIA NIM's previously tested `openai/gpt-oss-120b` endpoint is marked deprecated and is excluded from execution. Paid or promotional-credit comparison models require explicit opt-in:
 
