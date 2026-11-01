@@ -85,6 +85,7 @@ ENV_VARS = {
     "COHERE": "COHERE_API_KEY_FLOSSWARE",
     "OPENAI": "OPENAI_API_KEY_FLOSSWARE",
     "ANTHROPIC": "ANTHROPIC_API_KEY_FLOSSWARE",
+    "VOYAGEAI": "VOYAGEAI_API_KEY_FLOSSWARE",
 }
 
 # Accept standard provider names and common SDK conventions.
@@ -102,6 +103,7 @@ ENV_VAR_ALIASES = {
     "COHERE": ("COHERE_API_KEY",),
     "OPENAI": ("OPENAI_API_KEY",),
     "ANTHROPIC": ("ANTHROPIC_API_KEY",),
+    "VOYAGEAI": ("VOYAGE_API_KEY", "VOYAGEAI_API_KEY"),
 }
 
 PROVIDER_CATALOGUE_PATH = Path(__file__).with_name("provider-catalogue.json")
