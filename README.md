@@ -121,14 +121,14 @@ The dataset is a small engineering-focused diagnostic, not a statistically repre
 
 #### Benchmarking an exported FlossWare corpus
 
-The semantic benchmark accepts an external JSON dataset through `--dataset`. This lets the evaluation harness stay independent of the live PostgreSQL schema and avoids coupling this repository to private corpus storage.
+The semantic benchmark accepts an external JSON dataset through `--dataset`. This keeps the evaluation harness independent of the corpus storage implementation.
 
 Dataset format:
 
 ```json
 {
   "name": "flossware-corpus-v1",
-  "source": "postgresql-export",
+  "source": "local-corpus-export",
   "version": 1,
   "documents": [
     {
@@ -156,7 +156,7 @@ Run planning and execution:
 
 ```bash
 # Validate and plan only; no provider requests.
-python3 tools/provider_api/embedding_benchmark.py --dataset /path/to/flossware-benchmark.json
+python3 tools/provider_api/embedding_benchmark.py --dataset /path/to/kbase-corpus-export.json --queries /path/to/reviewed-queries.json
 
 # Execute after reviewing the dataset and provider data-sharing implications.
 python3 tools/provider_api/embedding_benchmark.py --dataset /path/to/flossware-benchmark.json --run
@@ -168,6 +168,28 @@ python3 tools/provider_api/embedding_benchmark.py --dataset /path/to/flossware-b
 The benchmark sends the actual document chunks and query text to each selected external embedding provider when `--run` is supplied. Do not include credentials, secrets, personal data, Red Hat confidential material, or content that is not approved for that provider. Only aggregate metrics, stable IDs, and request metadata are written to JSONL evidence; raw vectors and source text are not persisted by the runner. The dataset file itself remains under the caller's control.
 
 For a credible corpus benchmark, sample representative chunks from the PostgreSQL knowledge corpus, create realistic queries, and have a human review the relevant chunk IDs. Do not infer relevance from an existing embedding model's nearest-neighbor results alone; that would bake the incumbent model's bias into the gold labels. Use a stable corpus snapshot and keep document/query sets identical across providers.
+
+
+#### Exporting the private Obsidian kbase
+
+The canonical FlossWare corpus is the private, Git-backed Obsidian vault in `FlossWare/kbase`. Do not copy its content into this public repository, fixtures, or release artifacts.
+
+The local exporter reads Markdown files from a vault path and delegates segmentation to the canonical `FlossWare/chunking` implementation. It excludes hidden directories plus `.obsidian`, `.git`, and `.trash` by default. The output contains stable note/chunk IDs, relative source paths, offsets, and title metadata. It makes no provider requests and does not modify the vault.
+
+```bash
+python3 tools/provider_api/export_kbase.py \\
+  --vault ~/Development/github/FlossWare/kbase \\
+  --output ~/kbase-corpus-export.json
+
+# Validate and plan only after preparing reviewed query judgments.
+python3 tools/provider_api/embedding_benchmark.py \\
+  --dataset ~/kbase-corpus-export.json \\
+  --queries ~/kbase-reviewed-queries.json
+```
+
+The query file may be either a JSON array or an object containing a `queries` array. Each entry has a unique query ID, query text, and a non-empty `relevant` list of exported chunk IDs. Relevance judgments must be reviewed by a human. Do not use an existing embedding model alone to generate the gold labels.
+
+Keep both exported corpus and query files outside Git. The benchmark transmits their text to selected external providers only when `--run` is supplied. Review the export and provider data-sharing rules before executing.
 
 Provider API references: [Voyage embeddings](https://docs.voyageai.com/docs/embeddings), [Jina embeddings](https://docs.jina.ai/), [Cohere Embed v2](https://docs.cohere.com/reference/embed), [Google embedContent](https://ai.google.dev/api/embeddings), [OpenAI embeddings](https://developers.openai.com/api/reference/resources/embeddings/methods/create), [Mistral embeddings](https://docs.mistral.ai/api/endpoint/embeddings).
 
