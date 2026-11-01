@@ -217,6 +217,15 @@ def classify_http_error(status: int | None, detail: str | None) -> str | None:
     if not isinstance(metadata, dict):
         metadata = {}
 
+    if status == 403:
+        message = str(metadata.get("raw") or error.get("message") or detail or "").lower()
+        if (
+            "only available on agentic harnesses" in message
+            or "agentic harness" in message and "coding agent" in message
+        ):
+            return "agentic-harness-required"
+        return None
+
     if status == 429:
         limit_source = str(metadata.get("limit_source") or "").lower()
         if limit_source == "upstream_provider_shared_pool":
