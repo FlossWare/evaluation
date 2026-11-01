@@ -216,6 +216,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--provider", action="append", choices=sorted(ENV_VARS),
                         help="Run only this provider; repeat to select several.")
+    parser.add_argument("--model",
+                        help="Run only this exact configured model ID; combine with --provider to validate its provider.")
     parser.add_argument("--include-paid", action="store_true",
                         help="Also run paid/promotional-credit comparison candidates.")
     parser.add_argument("--timeout", type=float, default=45.0)
@@ -227,13 +229,26 @@ def main() -> int:
     if args.timeout <= 0 or args.max_output_tokens < 1:
         parser.error("--timeout must be positive and --max-output-tokens must be at least 1")
 
+    # Validate exact model selection against the configured case catalogue first.
+    # This keeps --model narrow and prevents arbitrary model IDs from reaching providers.
+    if args.model:
+        matching_models = [case for case in CASES if case["model"] == args.model]
+        if not matching_models:
+            parser.error(f"Model is not configured in this smoke-test catalogue: {args.model}")
+        if args.provider and not any(case["provider"] in args.provider for case in matching_models):
+            configured = ", ".join(sorted({case["provider"] for case in matching_models}))
+            parser.error(f"Model {args.model!r} is configured for {configured}, not the selected provider(s).")
+
     selected = [
         case for case in CASES
         if (not args.provider or case["provider"] in args.provider)
+        and (not args.model or case["model"] == args.model)
         and (args.include_paid or case["access"] not in {
             "promotional-or-paid", "paid-unless-account-credit", "paid"
         })
     ]
+    if not selected and args.model:
+        parser.error(f"Model {args.model!r} is excluded from the default batch; use --include-paid if it is a paid/promotional candidate.")
     if not selected:
         parser.error("No test cases selected.")
 
