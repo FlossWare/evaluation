@@ -68,6 +68,7 @@ def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[
         "observed_at": datetime.now(timezone.utc).isoformat(),
         "provider": provider,
         "model_requested": model,
+        "requested_max_output_tokens": max_tokens,
         "access_classification": case["access"],
         "credential_env": env_name,
         "credential_configured": bool(key),
@@ -165,14 +166,19 @@ def request_case(case: dict[str, str], timeout: float, max_tokens: int) -> dict[
         result["reasoning_tokens"] = reasoning_tokens or 0
         result["visible_output_chars"] = len(text.strip())
 
-        if result["semantic_match"]:
-            result["response_completeness"] = "complete"
-            result["status"] = "passed"
-        elif not text.strip() and result["finish_reason"] in {"length", "MAX_TOKENS"}:
+        finish_reason = str(result["finish_reason"] or "").upper()
+        hit_output_limit = finish_reason in {"LENGTH", "MAX_TOKENS"}
+
+        # A length stop takes precedence over text matching: partial output must
+        # never be reported as complete, even when it contains some visible text.
+        if hit_output_limit:
             result["response_completeness"] = "incomplete"
             result["status"] = (
                 "incomplete-reasoning" if result["reasoning_tokens"] else "incomplete-output"
             )
+        elif result["semantic_match"]:
+            result["response_completeness"] = "complete"
+            result["status"] = "passed"
         elif not text.strip():
             result["response_completeness"] = "empty"
             result["status"] = "empty-response"
@@ -254,7 +260,7 @@ def main() -> int:
 
     results = [request_case(case, args.timeout, args.max_output_tokens) for case in selected]
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    with args.output.open("w", encoding="utf-8") as stream:
+    with args.output.open("a", encoding="utf-8") as stream:
         for item in results:
             stream.write(json.dumps(item, ensure_ascii=False) + "\n")
 
